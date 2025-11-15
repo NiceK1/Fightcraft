@@ -265,13 +265,13 @@ class SpriteGenerator:
         materials_str = ", ".join(materials).lower()
 
         prompts = {
-            "weapon": f"pixel art game sprite, RPG {item_type}, fantasy weapon made from {materials_str}, "
-                     f"centered on white background, isometric view, 64x64 pixels, detailed, clean lines",
-            "armor": f"pixel art game sprite, RPG {item_type}, fantasy armor made from {materials_str}, "
-                    f"centered on white background, isometric view, 64x64 pixels, detailed, clean lines",
+            "weapon": f"pixel art game sprite, RPG {item_type}, fantasy 2-handed weapon made from {materials_str}, "
+                     f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines",
+            "armor": f"pixel art game sprite, RPG {item_type}, fantasy armor chestpiece made from {materials_str}, "
+                    f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines",
             "concoction": f"pixel art game sprite, fantasy RPG health restore bottle made from {materials_str}, "
                          f"magical glowing flask, video game powerup collectible, cartoon style healing item, "
-                         f"centered on white background, isometric view, 64x64 pixels, detailed, clean lines, bright friendly colors"
+                         f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines, bright friendly colors"
         }
 
         return prompts.get(item_type, f"pixel art game sprite, {item_type} made from {materials_str}")
