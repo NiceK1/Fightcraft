@@ -401,23 +401,70 @@ class SpriteGenerator:
         draw.rectangle([center - 15, center + 8, center + 15, center + 14], fill=guard_color, outline=(0, 0, 0), width=2)
 
     def _draw_armor(self, draw: ImageDraw.Draw, size: int, colors: List[tuple]):
-        """Draw a stylized armor piece."""
+        """Draw a stylized armor piece with cuirass-like shape covering shoulders."""
         center = size // 2
 
-        # Draw main body (chestplate shape)
+        # Draw main body (cuirass/breastplate shape) with layered design
+        # Top is flat and covers shoulders
+        top_y = center - 22  # Higher up to cover more area
+        body_width = 50  # Narrower at top (reduced from 56)
+        shoulder_width = 28  # Width at shoulder level (slightly narrower)
+        
+        # Main cuirass body - wider at top, tapering to bottom
         body_points = [
-            (center, center - 30),
-            (center + 25, center - 10),
-            (center + 20, center + 30),
-            (center - 20, center + 30),
-            (center - 25, center - 10)
+            (center - body_width // 2, top_y),           # Left top (flat)
+            (center + body_width // 2, top_y),           # Right top (flat)
+            (center + shoulder_width, center - 3),        # Right shoulder
+            (center + 22, center + 25),                  # Right mid
+            (center + 18, center + 32),                  # Right bottom
+            (center - 18, center + 32),                  # Left bottom
+            (center - 22, center + 25),                  # Left mid
+            (center - shoulder_width, center - 3)        # Left shoulder
         ]
+        
+        # Draw main armor body
         draw.polygon(body_points, fill=colors[0])
         draw.line(body_points + [body_points[0]], fill=(0, 0, 0), width=2)
-
-        # Draw decorative elements
+        
+        # Ensure top is completely flat
+        draw.line([(center - body_width // 2, top_y), (center + body_width // 2, top_y)], 
+                 fill=colors[0], width=3)
+        draw.line([(center - body_width // 2, top_y), (center + body_width // 2, top_y)], 
+                 fill=(0, 0, 0), width=1)
+        
+        # Add layered shoulder pauldrons (multi-plate design)
+        pauldron_height = 12
+        pauldron_width = 8
+        pauldron_offset = 4
+        
+        # Left shoulder pauldron - layered plates
+        for i in range(3):
+            plate_y = top_y + i * pauldron_offset
+            plate_width = pauldron_width - i * 1
+            draw.ellipse([center - body_width // 2 - plate_width, plate_y, 
+                         center - body_width // 2, plate_y + pauldron_height - i * 2], 
+                        fill=colors[0], outline=(0, 0, 0), width=1)
+        
+        # Right shoulder pauldron - layered plates
+        for i in range(3):
+            plate_y = top_y + i * pauldron_offset
+            plate_width = pauldron_width - i * 1
+            draw.ellipse([center + body_width // 2, plate_y, 
+                         center + body_width // 2 + plate_width, plate_y + pauldron_height - i * 2], 
+                        fill=colors[0], outline=(0, 0, 0), width=1)
+        
+        # Add decorative chest panels (like riveted plates)
         if len(colors) > 1:
-            draw.ellipse([center - 8, center - 10, center + 8, center + 10], fill=colors[1], outline=(0, 0, 0), width=2)
+            # Upper chest panels
+            panel_color = colors[1] if len(colors) > 1 else tuple(max(0, c - 30) for c in colors[0])
+            # Left panel
+            draw.rectangle([center - 12, center - 5, center - 4, center + 5], 
+                          fill=panel_color, outline=(0, 0, 0), width=1)
+            # Right panel
+            draw.rectangle([center + 4, center - 5, center + 12, center + 5], 
+                          fill=panel_color, outline=(0, 0, 0), width=1)
+            # Central decorative element
+            draw.ellipse([center - 6, center + 3, center + 6, center + 15], fill=colors[1], outline=(0, 0, 0), width=2)
 
     def _draw_concoction(self, draw: ImageDraw.Draw, size: int, colors: List[tuple]):
         """Draw a stylized potion/concoction."""
