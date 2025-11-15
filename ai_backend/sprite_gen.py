@@ -140,31 +140,32 @@ class SpriteGenerator:
         image.save(buffer, format='PNG')
         return buffer.getvalue()
         
-    def remove_bg_removebg(self, image_bytes: bytes) -> bytes:
-    """Remove background using remove.bg API."""
-    api_key = os.getenv("REMOVEBG_API_KEY")
-    if not api_key:
-        print("REMOVEBG_API_KEY not found, skipping background removal")
-        return image_bytes
-
-    try:
-        response = requests.post(
-            "https://api.remove.bg/v1.0/removebg",
-            files={'image_file': ("input.png", image_bytes, "image/png")},
-            data={'size': 'auto'},
-            headers={'X-Api-Key': api_key},
-            timeout=15,
-        )
-
-        if response.status_code != 200:
-            print("remove.bg error:", response.status_code, response.text)
+    def remove_bg_clipdrop(self, image_bytes: bytes) -> bytes:
+        """Remove background using ClipDrop API."""
+        api_key = os.getenv("CLIPDROP_API_KEY")
+        if not api_key:
+            print("CLIPDROP_API_KEY not found, skipping background removal")
             return image_bytes
 
-        return response.content
+        try:
+            response = requests.post(
+                "https://clipdrop-api.co/remove-background/v1",
+                files={
+                "image_file": ("input.jpg", image_bytes, "image/jpeg"),
+                },
+                headers={"x-api-key": api_key},
+                timeout=15
+            )
 
-    except Exception as e:
-        print("remove.bg background removal failed:", e)
-        return image_bytes
+            if response.ok:
+                return response.content
+            else:
+                print("ClipDrop error:", response.status_code, response.text)
+                return image_bytes
+
+        except Exception as e:
+            print("ClipDrop background removal failed:", e)
+            return image_bytes
 
     def _generate_with_openai(
         self,
