@@ -64,6 +64,8 @@ class AIClient:
                     armor=stats_data.get("armor", 0),
                     speed=stats_data.get("speed", 1.0),
                     health=stats_data.get("health", 0),
+                    effect_type=stats_data.get("effect_type", ""),
+                    effect_power=stats_data.get("effect_power", 0.0),
                     special_effect=stats_data.get("special_effect", "")
                 ),
                 rarity=self._parse_rarity(stats_data.get("rarity", "common")),
@@ -161,6 +163,8 @@ class AIClient:
             "armor": stats.get("armor", 0),
             "speed": stats.get("speed", 1.0),
             "health": stats.get("health", 0),
+            "effect_type": "",
+            "effect_power": 0.0,
             "special_effect": "",
             "rarity": "common",
             "description": f"Crafted from {material_str}"
@@ -180,6 +184,8 @@ class AIClient:
                 armor=stats_data["armor"],
                 speed=stats_data["speed"],
                 health=stats_data["health"],
+                effect_type=stats_data["effect_type"],
+                effect_power=stats_data["effect_power"],
                 special_effect=stats_data["special_effect"]
             ),
             rarity=Rarity.COMMON,

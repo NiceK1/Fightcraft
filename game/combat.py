@@ -5,6 +5,7 @@ import math
 from typing import Optional, List
 from game.item import Item, ItemType
 from game.character_sprite import CharacterSprite
+from game.effects import EffectManager, EffectType, EffectData, ActiveEffect, EffectAnimator
 
 
 class HealthBarAnimator:
@@ -82,10 +83,13 @@ class Fighter:
         # Character sprite
         base_color = (100, 150, 200) if is_player else (200, 100, 100)
         self.sprite = CharacterSprite(base_color=base_color, size=128)
-        
+
         # Health bar animator
         self.health_animator = HealthBarAnimator()
         self.health_animator.set_target_health(1.0)
+
+        # Effect manager
+        self.effects = EffectManager()
 
     def equip_items(self, weapon: Optional[Item], armor: Optional[Item], concoction: Optional[Item]):
         """Equip items for combat."""
@@ -170,6 +174,9 @@ class CombatSystem:
         self.combat_over = False
         self.player_won = False
 
+        # Effect animator for visual particles
+        self.effect_animator = EffectAnimator()
+
         # Determine turn order based on speed
         self.turn_order = self._determine_turn_order()
 
@@ -180,6 +187,84 @@ class CombatSystem:
         else:
             return [self.enemy, self.player]
 
+    def _apply_weapon_effect(self, attacker: Fighter, defender: Fighter, damage: int, defender_x: int, defender_y: int) -> List[str]:
+        """Apply weapon special effects. Returns messages."""
+        messages = []
+
+        if not attacker.weapon or not attacker.weapon.stats.effect_type:
+            return messages
+
+        effect_type_str = attacker.weapon.stats.effect_type
+        effect_power = attacker.weapon.stats.effect_power
+
+        try:
+            effect_type = EffectType(effect_type_str)
+        except ValueError:
+            return messages  # Invalid effect type
+
+        # Spawn visual particles at defender position
+        self.effect_animator.spawn_effect(defender_x, defender_y, effect_type, count=50)
+
+        # Apply effect based on type
+        if effect_type == EffectType.FIRE:
+            # Apply burning DoT
+            defender.effects.add_effect(ActiveEffect(effect_type, effect_power, duration=3, source_name=attacker.name))
+            messages.append(f"  → {defender.name} is burning! ({int(effect_power)} damage/turn for 3 turns)")
+
+        elif effect_type == EffectType.POISON:
+            # Apply poison DoT
+            defender.effects.add_effect(ActiveEffect(effect_type, effect_power, duration=5, source_name=attacker.name))
+            messages.append(f"  → {defender.name} is poisoned! ({int(effect_power)} damage/turn for 5 turns)")
+
+        elif effect_type == EffectType.BLEED:
+            # Apply bleed DoT (can stack)
+            defender.effects.add_effect(ActiveEffect(effect_type, effect_power, duration=4, source_name=attacker.name))
+            messages.append(f"  → {defender.name} is bleeding! ({int(effect_power)} damage/turn for 4 turns)")
+
+        elif effect_type == EffectType.LIFESTEAL:
+            # Heal attacker
+            heal_amount = int(damage * effect_power)
+            attacker.current_health = min(attacker.max_health, attacker.current_health + heal_amount)
+            attacker.health_animator.set_target_health(attacker.get_health_percentage())
+            messages.append(f"  → {attacker.name} steals {heal_amount} health!")
+
+        elif effect_type == EffectType.VAMPIRIC:
+            # Stronger lifesteal
+            heal_amount = int(damage * effect_power)
+            attacker.current_health = min(attacker.max_health, attacker.current_health + heal_amount)
+            attacker.health_animator.set_target_health(attacker.get_health_percentage())
+            messages.append(f"  → {attacker.name} drains {heal_amount} life force!")
+
+        elif effect_type == EffectType.CRITICAL:
+            # Critical hits are already built into damage variance, just show message
+            if random.random() < effect_power:
+                messages.append(f"  → CRITICAL HIT! Devastating blow!")
+
+        elif effect_type == EffectType.LIGHTNING:
+            # Instant bonus damage
+            bonus_damage = int(effect_power)
+            actual_bonus = defender.take_damage(bonus_damage)
+            messages.append(f"  → Lightning strikes for {actual_bonus} bonus damage!")
+
+        elif effect_type == EffectType.FREEZE:
+            # Apply slow effect
+            defender.effects.add_effect(ActiveEffect(effect_type, effect_power, duration=2, source_name=attacker.name))
+            messages.append(f"  → {defender.name} is slowed by frost!")
+
+        elif effect_type == EffectType.REFLECT:
+            # Reflect damage back (armor effect, handled on defender)
+            if defender.armor and defender.armor.stats.effect_type == "reflect":
+                reflect_damage = int(damage * defender.armor.stats.effect_power)
+                attacker.current_health = max(0, attacker.current_health - reflect_damage)
+                attacker.health_animator.set_target_health(attacker.get_health_percentage())
+                messages.append(f"  → Thorns reflect {reflect_damage} damage back to {attacker.name}!")
+
+        elif effect_type == EffectType.SHIELD:
+            # Shield effect (armor, applied passively)
+            messages.append(f"  → {attacker.weapon.stats.special_effect}!")
+
+        return messages
+
     def execute_turn(self) -> List[str]:
         """Execute one turn of combat. Returns log messages."""
         if self.combat_over:
@@ -189,30 +274,87 @@ class CombatSystem:
         attacker = self.turn_order[self.turn % 2]
         defender = self.enemy if attacker == self.player else self.player
 
+        # Process DoT effects at start of attacker's turn
+        dot_damage, dot_messages = attacker.effects.process_turn()
+        if dot_damage > 0:
+            attacker.current_health = max(0, attacker.current_health - dot_damage)
+            attacker.health_animator.set_target_health(attacker.get_health_percentage())
+            messages.extend(dot_messages)
+
+            # Check if DoT killed the fighter
+            if not attacker.is_alive():
+                messages.append(f"{attacker.name} succumbs to their wounds!")
+                self.combat_over = True
+                self.player_won = (attacker == self.enemy)
+                attacker.sprite.start_defeated_animation()
+                if self.player_won:
+                    messages.append(f"{self.player.name} wins!")
+                else:
+                    messages.append(f"{self.enemy.name} wins!")
+                self.combat_log.extend(messages)
+                self.turn += 1
+                return messages
+
         # Calculate hit chance (80-95% based on speed)
-        hit_chance = 0.8 + (attacker.get_total_speed() - 1.0) * 0.15
+        attacker_speed = attacker.get_total_speed()
+        # Apply freeze effect modifier
+        if attacker.effects.has_effect(EffectType.FREEZE):
+            freeze_power = attacker.effects.get_effect_power(EffectType.FREEZE)
+            attacker_speed *= (1.0 - freeze_power)
+
+        hit_chance = 0.8 + (attacker_speed - 1.0) * 0.15
         hit_chance = max(0.7, min(0.95, hit_chance))
 
         # Start attack animation
         attacker.sprite.start_attack_animation(duration=0.5)
-        
+
         if random.random() < hit_chance:
             # Hit!
             damage = attacker.get_total_damage()
+
+            # Check for critical hit from weapon effect
+            is_critical = False
+            if attacker.weapon and attacker.weapon.stats.effect_type == "critical":
+                if random.random() < attacker.weapon.stats.effect_power:
+                    damage = int(damage * 1.5)
+                    is_critical = True
+
             # Add some variance
             damage = int(damage * random.uniform(0.85, 1.15))
 
+            # Calculate defender position for particle effects (at character center)
+            defender_x = 350 if defender == self.player else 1000  # Character centers
+            defender_y = 200  # Character center height
+
+            # Check for reflect effect on defender's armor BEFORE dealing damage
+            reflect_messages = []
+            if defender.armor and defender.armor.stats.effect_type == "reflect":
+                reflect_damage = int(damage * defender.armor.stats.effect_power)
+                attacker.current_health = max(0, attacker.current_health - reflect_damage)
+                attacker.health_animator.set_target_health(attacker.get_health_percentage())
+                reflect_messages.append(f"  → Thorns reflect {reflect_damage} damage back to {attacker.name}!")
+                # Spawn reflect particles at attacker position
+                attacker_x = 350 if attacker == self.player else 1000
+                self.effect_animator.spawn_effect(attacker_x, 200, EffectType.REFLECT, count=30)
+
             actual_damage = defender.take_damage(damage)
-            
+
             # Trigger hit expression on defender
             defender.sprite.start_hit_animation(duration=0.4)
 
-            messages.append(f"{attacker.name} attacks {defender.name} for {actual_damage} damage!")
+            attack_msg = f"{attacker.name} attacks {defender.name} for {actual_damage} damage!"
+            if is_critical:
+                attack_msg += " CRITICAL HIT!"
+            messages.append(attack_msg)
 
-            # Check for special effects
-            if attacker.weapon and attacker.weapon.stats.special_effect:
-                if random.random() < 0.3:  # 30% chance to trigger
-                    messages.append(f"  → {attacker.weapon.stats.special_effect}!")
+            # Add reflect messages
+            messages.extend(reflect_messages)
+
+            # Apply weapon special effects (30% chance or always for some effects)
+            effect_chance = 1.0 if attacker.weapon and attacker.weapon.stats.effect_type in ["lifesteal", "vampiric"] else 0.3
+            if attacker.weapon and attacker.weapon.stats.effect_type and random.random() < effect_chance:
+                effect_messages = self._apply_weapon_effect(attacker, defender, actual_damage, defender_x, defender_y)
+                messages.extend(effect_messages)
         else:
             # Miss!
             messages.append(f"{attacker.name} attacks but misses!")
@@ -233,6 +375,10 @@ class CombatSystem:
         self.turn += 1
 
         return messages
+
+    def update_effects(self, dt: float):
+        """Update particle effects animations."""
+        self.effect_animator.update(dt)
 
 
 class CombatRenderer:
@@ -456,3 +602,7 @@ class CombatRenderer:
             msg_surf = self.small_font.render(message, True, (220, 220, 220))
             msg_rect = msg_surf.get_rect(center=(x + 150, y + 35 + i * 22))
             surface.blit(msg_surf, msg_rect)
+
+    def render_effects(self, surface: pygame.Surface, effect_animator: EffectAnimator):
+        """Render particle effects."""
+        effect_animator.render(surface)
