@@ -82,13 +82,21 @@ class SpriteGenerator:
         if self.use_ai and self.client:
             try:
                 if self.ai_provider == "replicate":
-                    return self._generate_with_replicate(materials, item_type, seed)
+                    img = self._generate_with_replicate(materials, item_type, seed)
+                    img = self.remove_bg_photoroom(img)
+                    return img
+
                 elif self.ai_provider == "openai":
-                    return self._generate_with_openai(materials, item_type, seed)
+                    img = self._generate_with_openai(materials, item_type, seed)
+                    img = self.remove_bg_photoroom(img)
+                    return img
+
                 elif self.ai_provider == "comfyui":
-                    return self._generate_with_comfy(materials, item_type, seed)
-            except Exception as e:
-                print(f"AI sprite generation failed: {e}, using fallback")
+                    img = self._generate_with_comfy(materials, item_type, seed)
+                    img = self.remove_bg_photoroom(img)
+                    return img
+    except Exception as e:
+        print(f"AI sprite generation failed: {e}, using fallback")
 
         # Fallback to procedural generation
         return self._generate_fallback(materials, item_type, seed)
@@ -131,6 +139,31 @@ class SpriteGenerator:
         buffer = io.BytesIO()
         image.save(buffer, format='PNG')
         return buffer.getvalue()
+        
+        def remove_bg_photoroom(self, image_bytes: bytes) -> bytes:
+        """Remove background using PhotoRoom API."""
+        api_key = os.getenv("PHOTOROOM_API_KEY")
+        if not api_key:
+            print("PHOTOROOM_API_KEY not found, skipping background removal")
+            return image_bytes
+
+        try:
+            response = requests.post(
+                "https://sdk.photoroom.com/v1/segment",
+                headers={"x-api-key": api_key},
+                files={"image_file": ("sprite.png", image_bytes, "image/png")},
+                timeout=10
+            )
+
+            if response.status_code != 200:
+                print("PhotoRoom error:", response.text)
+                return image_bytes
+
+            return response.content
+
+        except Exception as e:
+            print("PhotoRoom background removal failed:", e)
+            return image_bytes
 
     def _generate_with_openai(
         self,
