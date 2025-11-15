@@ -100,61 +100,60 @@ class Recipe:
 
 # Pre-defined base materials
 def create_base_materials() -> List[Item]:
-    """Create categorized crafting materials."""
+    """Create categorized crafting materials using real images."""
     materials = []
 
-    # WEAPON MATERIALS - Metals, sharp, offensive
+    # Material lists now contain image paths instead of colors
     weapon_materials = [
-        ("Steel Ingot", (180, 180, 190)),
-        ("Iron Blade", (140, 140, 150)),
-        ("Dragon Shard", (220, 60, 60)),
-        ("Obsidian Shard", (50, 50, 60)),
-        ("Mithril Bar", (180, 220, 255)),
-        ("Dark Crystal", (140, 40, 80)),
+        ("Steel Ingot",       "assets/clean_images/Steel_Ignot.png"),
+        ("Iron",              "assets/clean_images/Iron.png"),
+        ("Dragon Shard",      "assets/clean_images/Dragon_Shard.png"),
+        ("Obsidian Shard",    "assets/clean_images/Obsidian_Shard.png"),
+        ("Mithril Bar",       "assets/clean_images/Mithril_Bar.png"),
+        ("Dark Crystal",      "assets/clean_images/Dark_Crystal.png"),
     ]
 
-    # ARMOR MATERIALS - Protective, defensive
     armor_materials = [
-        ("Thick Leather", (140, 100, 60)),
-        ("Steel Plate", (170, 170, 175)),
-        ("Dragon Scale", (200, 80, 80)),
-        ("Reinforced Wood", (120, 80, 40)),
-        ("Titanium Sheet", (200, 200, 210)),
-        ("Stone Shield", (100, 100, 110)),
+        ("Thick Leather",     "assets/clean_images/Thick_Leather.png"),
+        ("Steel Plate",       "assets/clean_images/Steel_Plate.png"),
+        ("Dragon Scale",      "assets/clean_images/Dragon_Scale.png"),
+        ("Reinforced Wood",   "assets/clean_images/Reinforced_Wood.png"),
+        ("Titanium Sheet",    "assets/clean_images/Titanium_Sheet.png"),
+        ("Stone",             "assets/clean_images/Stone.png"),
     ]
 
-    # CONCOCTION MATERIALS - Magical, organic, alchemical
     concoction_materials = [
-        ("Magic Essence", (200, 100, 255)),
-        ("Crystal Powder", (150, 220, 255)),
-        ("Phoenix Feather", (255, 180, 80)),
-        ("Moonflower", (220, 220, 255)),
-        ("Dragon Essence", (180, 20, 20)),
-        ("Star Dust", (255, 255, 200)),
+        ("Magic Essence",     "assets/clean_images/Magic_Essence.png"),
+        ("Crystal Powder",    "assets/clean_images/Crystal_Powder.png"),
+        ("Phoenix Feather",   "assets/clean_images/Phoenix_Feather.png"),
+        ("Moonflower",        "assets/clean_images/Moonflower.png"),
+        ("Dragon Essence",    "assets/clean_images/Dragon_Essence.png"),
+        ("Star Dust",         "assets/clean_images/Star_Dust.png"),
     ]
 
-    # Create all materials with visual distinction
     all_categories = [
         (weapon_materials, "⚔"),
         (armor_materials, "🛡"),
-        (concoction_materials, "⚗")
+        (concoction_materials, "⚗"),
     ]
 
     for material_list, category_symbol in all_categories:
-        for name, color in material_list:
-            sprite = pygame.Surface((64, 64))
-            sprite.fill(color)
+        for name, path in material_list:
 
-            # Add border
-            pygame.draw.rect(sprite, (255, 255, 255), (0, 0, 64, 64), 3)
+            # 🖼 Загрузка изображения
+            try:
+                sprite = pygame.image.load(path).convert_alpha()
+            except:
+                print(f"[ERROR] Missing image: {path}, using placeholder")
+                sprite = pygame.Surface((64, 64))
+                sprite.fill((150, 0, 0))
 
-            # Add subtle category indicator (corner dot)
-            if "Steel" in name or "Iron" in name or "Blade" in name or "Fang" in name or "Horn" in name or "Obsidian" in name or "Mithril" in name or "Demon" in name:
-                pygame.draw.circle(sprite, (255, 100, 100), (10, 10), 5)  # Red dot for weapons
-            elif "Leather" in name or "Plate" in name or "Scale" in name or "Wood" in name or "Titanium" in name or "Stone" in name or "Shield" in name:
-                pygame.draw.circle(sprite, (100, 100, 255), (10, 10), 5)  # Blue dot for armor
-            else:
-                pygame.draw.circle(sprite, (255, 255, 100), (10, 10), 5)  # Yellow dot for concoctions
+            # Добавляем небольшой индикатор категории
+            dot_color = (255, 100, 100) if category_symbol == "⚔" else \
+                        (100, 100, 255) if category_symbol == "🛡" else \
+                        (255, 255, 100)
+
+            pygame.draw.circle(sprite, dot_color, (8, 8), 5)
 
             item = Item(
                 name=name,
@@ -162,10 +161,10 @@ def create_base_materials() -> List[Item]:
                 sprite=sprite,
                 description=f"A crafting material."
             )
+
             materials.append(item)
 
     return materials
-
 
 # Pre-defined recipes (materials needed to craft items)
 RECIPES = [
