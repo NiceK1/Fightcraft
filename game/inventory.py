@@ -100,16 +100,16 @@ class Inventory:
 class EquipmentSlots:
     """Manages equipment slots for weapon, armor, and concoction."""
 
-    def __init__(self, x: int, y: int, slot_size: int = 80, spacing: int = 20):
+    def __init__(self, x: int, y: int, slot_size: int = 80, spacing: int = 40):
         self.x = x
         self.y = y
         self.slot_size = slot_size
         self.spacing = spacing
 
-        # Create equipment slots
+        # Create equipment slots - horizontally arranged
         self.weapon_slot = InventorySlot(x, y, slot_size)
-        self.armor_slot = InventorySlot(x, y + slot_size + spacing, slot_size)
-        self.concoction_slot = InventorySlot(x, y + 2 * (slot_size + spacing), slot_size)
+        self.armor_slot = InventorySlot(x + slot_size + spacing, y, slot_size)
+        self.concoction_slot = InventorySlot(x + 2 * (slot_size + spacing), y, slot_size)
 
         self.slots = {
             "weapon": self.weapon_slot,
@@ -149,9 +149,12 @@ class EquipmentSlots:
         hovered_slot = self.get_slot_at_pos(mouse_pos) if mouse_pos else None
 
         for name, slot in self.slots.items():
-            # Draw label
-            label_surf = font.render(labels[name], True, (255, 255, 255))
-            surface.blit(label_surf, (slot.x + self.slot_size + 10, slot.y + self.slot_size // 2 - 10))
-
-            # Draw slot
+            # Draw slot first
             slot.render(surface, hovered=(name == hovered_slot))
+            
+            # Draw label below the slot, centered
+            label_surf = font.render(labels[name], True, (255, 255, 255))
+            label_rect = label_surf.get_rect()
+            label_x = slot.x + (self.slot_size - label_rect.width) // 2
+            label_y = slot.y + self.slot_size + 5
+            surface.blit(label_surf, (label_x, label_y))
