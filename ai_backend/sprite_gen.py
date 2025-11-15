@@ -299,7 +299,7 @@ class SpriteGenerator:
 
         prompts = {
             "weapon": f"pixel art game sprite, RPG {item_type}, fantasy 2-handed weapon made from {materials_str}, "
-                     f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines",
+                     f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines, pointing upwards, centered",
             "armor": f"pixel art game sprite, RPG {item_type}, fantasy armor chestpiece made from {materials_str}, "
                     f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines",
             "concoction": f"pixel art game sprite, fantasy RPG health restore bottle made from {materials_str}, "
@@ -346,7 +346,9 @@ class SpriteGenerator:
     def _get_material_colors(self, materials: List[str]) -> List[tuple]:
         """Get colors based on material names."""
         color_map = {
+            # Traditional materials
             "iron": (150, 150, 150),
+            "steel": (180, 180, 190),
             "wood": (139, 90, 43),
             "oak": (139, 90, 43),
             "dragon": (200, 50, 50),
@@ -360,6 +362,58 @@ class SpriteGenerator:
             "leather": (160, 120, 70),
             "magic": (200, 100, 255),
             "essence": (220, 150, 255),
+            "obsidian": (50, 50, 60),
+            "mithril": (180, 220, 255),
+            "titanium": (200, 200, 210),
+            "plate": (170, 170, 175),
+            "reinforced": (120, 80, 40),
+            "shield": (100, 100, 110),
+            
+            # Wacky weapon materials
+            "rubber": (255, 255, 0),
+            "chicken": (255, 255, 0),
+            "frozen": (100, 150, 255),
+            "fish": (100, 150, 255),
+            "lightning": (255, 255, 100),
+            "bolt": (255, 255, 100),
+            "angry": (255, 200, 50),
+            "bee": (255, 200, 50),
+            "disco": (255, 150, 255),
+            "ball": (255, 150, 255),
+            "banana": (255, 255, 80),
+            "blade": (255, 255, 80),
+            "laser": (255, 50, 50),
+            "pointer": (255, 50, 50),
+            "flying": (255, 200, 150),
+            "spaghetti": (255, 200, 150),
+            
+            # Wacky armor materials
+            "bubble": (200, 200, 255),
+            "wrap": (200, 200, 255),
+            "pillow": (255, 200, 200),
+            "fort": (255, 200, 200),
+            "marshmallow": (255, 255, 255),
+            "pool": (0, 255, 200),
+            "noodle": (0, 255, 200),
+            "tinfoil": (150, 150, 150),
+            "hat": (150, 150, 150),
+            "yoga": (100, 255, 100),
+            "mat": (100, 255, 100),
+            "pizza": (255, 150, 100),
+            "box": (255, 150, 100),
+            "cardboard": (200, 150, 100),
+            "suit": (200, 150, 100),
+            "duck": (255, 255, 50),
+            "plush": (255, 100, 150),
+            "armor": (255, 100, 150),
+            
+            # Concoction materials
+            "phoenix": (255, 180, 80),
+            "feather": (255, 180, 80),
+            "moonflower": (220, 220, 255),
+            "star": (255, 255, 200),
+            "dust": (255, 255, 200),
+            "powder": (150, 220, 255),
         }
 
         colors = []

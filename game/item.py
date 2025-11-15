@@ -111,6 +111,14 @@ def create_base_materials() -> List[Item]:
         ("Obsidian Shard", (50, 50, 60)),
         ("Mithril Bar", (180, 220, 255)),
         ("Dark Crystal", (140, 40, 80)),
+        ("Rubber Chicken", (255, 255, 0)),
+        ("Frozen Fish", (100, 150, 255)),
+        ("Lightning Bolt", (255, 255, 100)),
+        ("Angry Bee", (255, 200, 50)),
+        ("Disco Ball", (255, 150, 255)),
+        ("Banana Blade", (255, 255, 80)),
+        ("Laser Pointer", (255, 50, 50)),
+        ("Flying Spaghetti", (255, 200, 150)),
     ]
 
     # ARMOR MATERIALS - Protective, defensive
@@ -121,6 +129,16 @@ def create_base_materials() -> List[Item]:
         ("Reinforced Wood", (120, 80, 40)),
         ("Titanium Sheet", (200, 200, 210)),
         ("Stone Shield", (100, 100, 110)),
+        ("Bubble Wrap", (200, 200, 255)),
+        ("Pillow Fort", (255, 200, 200)),
+        ("Marshmallow", (255, 255, 255)),
+        ("Pool Noodle", (0, 255, 200)),
+        ("Tinfoil Hat", (150, 150, 150)),
+        ("Yoga Mat", (100, 255, 100)),
+        ("Pizza Box", (255, 150, 100)),
+        ("Cardboard Suit", (200, 150, 100)),
+        ("Rubber Duck", (255, 255, 50)),
+        ("Plush Armor", (255, 100, 150)),
     ]
 
     # CONCOCTION MATERIALS - Magical, organic, alchemical
@@ -149,9 +167,17 @@ def create_base_materials() -> List[Item]:
             pygame.draw.rect(sprite, (255, 255, 255), (0, 0, 64, 64), 3)
 
             # Add subtle category indicator (corner dot)
-            if "Steel" in name or "Iron" in name or "Blade" in name or "Fang" in name or "Horn" in name or "Obsidian" in name or "Mithril" in name or "Demon" in name:
+            wacky_weapons = ["Rubber", "Frozen", "Lightning", "Angry", "Disco", "Banana", "Laser", "Flying", "Spaghetti"]
+            wacky_armor = ["Bubble", "Pillow", "Marshmallow", "Pool", "Tinfoil", "Yoga", "Pizza", "Cardboard", "Rubber Duck", "Plush"]
+            
+            is_weapon = ("Steel" in name or "Iron" in name or "Blade" in name or "Shard" in name or 
+                        "Crystal" in name or "Mithril" in name or any(w in name for w in wacky_weapons))
+            is_armor = ("Leather" in name or "Plate" in name or "Scale" in name or "Wood" in name or 
+                       "Titanium" in name or "Stone" in name or "Shield" in name or any(w in name for w in wacky_armor))
+            
+            if is_weapon:
                 pygame.draw.circle(sprite, (255, 100, 100), (10, 10), 5)  # Red dot for weapons
-            elif "Leather" in name or "Plate" in name or "Scale" in name or "Wood" in name or "Titanium" in name or "Stone" in name or "Shield" in name:
+            elif is_armor:
                 pygame.draw.circle(sprite, (100, 100, 255), (10, 10), 5)  # Blue dot for armor
             else:
                 pygame.draw.circle(sprite, (255, 255, 100), (10, 10), 5)  # Yellow dot for concoctions
