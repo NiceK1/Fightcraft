@@ -35,6 +35,7 @@ class SpriteRequest(BaseModel):
     materials: List[str]
     item_type: str
     seed: Optional[int] = None
+    weapon_subtype: Optional[str] = None
 
 
 class StatsRequest(BaseModel):
@@ -79,11 +80,13 @@ async def generate_sprite(request: SpriteRequest):
             return Response(content=cached_sprite, media_type="image/png")
 
         # Generate new sprite
-        print(f"Generating sprite: {request.materials} -> {request.item_type}")
+        subtype_str = f" ({request.weapon_subtype})" if request.weapon_subtype else ""
+        print(f"Generating sprite: {request.materials} -> {request.item_type}{subtype_str}")
         sprite_data = sprite_gen.generate(
             request.materials,
             request.item_type,
-            request.seed
+            request.seed,
+            request.weapon_subtype
         )
 
         # Cache the result

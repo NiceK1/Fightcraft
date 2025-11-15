@@ -184,3 +184,67 @@ class ResultSlot:
         # Draw slot
         hovered = self.contains_point(mouse_pos) if mouse_pos else False
         self.slot.render(surface, hovered)
+
+
+class WeaponTypeSelector:
+    """UI element for selecting weapon subtype (sword, axe, spear)."""
+
+    def __init__(self, x: int, y: int, width: int = 120, height: int = 40):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.weapon_types = ["sword", "axe", "spear"]
+        self.selected_type = "sword"  # Default
+        self.spacing = 10
+
+        # Calculate button positions
+        self.buttons = []
+        button_height = (height - 2 * self.spacing) // 3
+        for i, weapon_type in enumerate(self.weapon_types):
+            button_y = y + i * (button_height + self.spacing)
+            self.buttons.append({
+                "type": weapon_type,
+                "rect": pygame.Rect(x, button_y, width, button_height),
+                "color": (100, 100, 150),
+                "hover_color": (130, 130, 180),
+                "selected_color": (150, 150, 220)
+            })
+
+    def handle_click(self, pos: Tuple[int, int]) -> bool:
+        """Handle click on weapon type buttons. Returns True if selection changed."""
+        for button in self.buttons:
+            if button["rect"].collidepoint(pos):
+                old_type = self.selected_type
+                self.selected_type = button["type"]
+                return old_type != self.selected_type
+        return False
+
+    def get_selected_type(self) -> str:
+        """Get currently selected weapon type."""
+        return self.selected_type
+
+    def render(self, surface: pygame.Surface, font: pygame.font.Font, mouse_pos: Optional[Tuple[int, int]] = None):
+        """Render weapon type selector buttons."""
+        # Draw title
+        title = font.render("Weapon Type", True, (255, 255, 255))
+        surface.blit(title, (self.x, self.y - 30))
+
+        # Draw buttons
+        for button in self.buttons:
+            # Determine button color
+            if button["type"] == self.selected_type:
+                color = button["selected_color"]
+            elif mouse_pos and button["rect"].collidepoint(mouse_pos):
+                color = button["hover_color"]
+            else:
+                color = button["color"]
+
+            # Draw button background
+            pygame.draw.rect(surface, color, button["rect"])
+            pygame.draw.rect(surface, (255, 255, 255), button["rect"], 2)
+
+            # Draw button text
+            text = font.render(button["type"].capitalize(), True, (255, 255, 255))
+            text_rect = text.get_rect(center=button["rect"].center)
+            surface.blit(text, text_rect)

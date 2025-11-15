@@ -19,13 +19,14 @@ class AIClient:
         materials: List[str],
         item_type: Optional[ItemType],
         callback: Callable[[Item], None],
+        weapon_subtype: Optional[str] = None,
         seed: Optional[int] = None
     ):
         """Generate item with AI (sprites and stats) asynchronously."""
 
         def generate():
             try:
-                item = self.generate_item(materials, item_type, seed)
+                item = self.generate_item(materials, item_type, seed, weapon_subtype)
                 callback(item)
             except Exception as e:
                 print(f"Error generating item: {e}")
@@ -40,7 +41,8 @@ class AIClient:
         self,
         materials: List[str],
         item_type: Optional[ItemType],
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        weapon_subtype: Optional[str] = None
     ) -> Item:
         """Generate item with AI (sprites and stats) synchronously."""
         try:
@@ -51,8 +53,8 @@ class AIClient:
             determined_type_str = stats_data.get("item_type", "weapon")
             determined_type = self._parse_item_type(determined_type_str)
 
-            # Request sprite generation with determined type
-            sprite = self._request_sprite(materials, determined_type, seed)
+            # Request sprite generation with determined type and weapon subtype
+            sprite = self._request_sprite(materials, determined_type, seed, weapon_subtype)
 
             # Create item from AI-generated data
             item = Item(
@@ -83,7 +85,8 @@ class AIClient:
         self,
         materials: List[str],
         item_type: ItemType,
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        weapon_subtype: Optional[str] = None
     ) -> pygame.Surface:
         """Request sprite generation from backend."""
         try:
@@ -92,7 +95,8 @@ class AIClient:
                 json={
                     "materials": materials,
                     "item_type": item_type.value,
-                    "seed": seed
+                    "seed": seed,
+                    "weapon_subtype": weapon_subtype
                 },
                 timeout=30
             )

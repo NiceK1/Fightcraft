@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 from game.engine import Scene
 from game.item import create_base_materials, Item, ItemType
 from game.inventory import Inventory, EquipmentSlots
-from game.crafting import CraftingGrid, CraftingSystem, CraftingButton, ResultSlot
+from game.crafting import CraftingGrid, CraftingSystem, CraftingButton, ResultSlot, WeaponTypeSelector
 from game.combat import Fighter, CombatSystem, CombatRenderer
 from game.ai_client import AIClient
 
@@ -92,6 +92,7 @@ class CraftingScene(Scene):
         self.crafting_grid = CraftingGrid(300, 150)
         self.result_slot = ResultSlot(700, 200)
         self.craft_button = CraftingButton(650, 320)
+        self.weapon_type_selector = WeaponTypeSelector(150, 180)
 
         # Store all materials by category
         all_materials = create_base_materials()
@@ -206,6 +207,12 @@ class CraftingScene(Scene):
                 self.equipment_slots.equip_item(slot_name, None)
             return
 
+        # Check weapon type selector (only when on weapon tab)
+        if self.current_tab == "weapon":
+            if self.weapon_type_selector.handle_click(pos):
+                # Selection changed, no further action needed
+                return
+
         # Check craft button
         if self.craft_button.contains_point(pos) and self.craft_button.enabled and not self.generating:
             self._start_crafting()
@@ -281,10 +288,13 @@ class CraftingScene(Scene):
         from game.item import ItemType
         if self.current_tab == "weapon":
             item_type = ItemType.WEAPON
+            weapon_subtype = self.weapon_type_selector.get_selected_type()
         elif self.current_tab == "armor":
             item_type = ItemType.ARMOR
+            weapon_subtype = None
         else:  # concoction
             item_type = ItemType.CONCOCTION
+            weapon_subtype = None
 
         # Start async AI generation with explicit type
         def on_complete(item: Item):
@@ -293,8 +303,8 @@ class CraftingScene(Scene):
             self.result_slot.set_item(item)
             self.crafting_grid.clear()
 
-        # Pass explicit item type based on current tab
-        self.ai_client.generate_item_async(materials, item_type, on_complete)
+        # Pass explicit item type and weapon subtype based on current tab
+        self.ai_client.generate_item_async(materials, item_type, on_complete, weapon_subtype)
 
     def update(self, dt: float):
         # Update craft button state - need at least 1 material
@@ -372,6 +382,11 @@ class CraftingScene(Scene):
         # Draw UI elements
         self.inventory.render(self.screen, mouse_pos)
         self.crafting_grid.render(self.screen, mouse_pos)
+        
+        # Draw weapon type selector only when on weapon tab
+        if self.current_tab == "weapon":
+            self.weapon_type_selector.render(self.screen, self.game.small_font, mouse_pos)
+        
         self.craft_button.render(self.screen, self.game.small_font)
         self.result_slot.render(self.screen, self.game.small_font, mouse_pos)
         self.equipment_slots.render(self.screen, self.game.small_font, mouse_pos)
