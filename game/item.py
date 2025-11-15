@@ -1,5 +1,6 @@
 """Item system for Fightcraft."""
 import pygame
+import os
 from typing import Optional, List
 from dataclasses import dataclass, field
 from enum import Enum
@@ -98,6 +99,29 @@ class Recipe:
         return sorted(materials) == self.materials
 
 
+def load_material_image(material_name: str, fallback_color: tuple) -> pygame.Surface:
+    """Load material PNG image or create fallback colored surface."""
+    # Convert material name to filename format (lowercase with underscores)
+    filename = material_name.lower().replace(" ", "_") + ".png"
+    image_path = os.path.join("assets", "materials", filename)
+    
+    # Try to load the PNG image
+    if os.path.exists(image_path):
+        try:
+            sprite = pygame.image.load(image_path).convert_alpha()
+            # Ensure the image is 64x64
+            sprite = pygame.transform.scale(sprite, (64, 64))
+            return sprite
+        except pygame.error:
+            print(f"Warning: Could not load {image_path}, using fallback color")
+    
+    # Fallback: create colored surface (original behavior)
+    sprite = pygame.Surface((64, 64))
+    sprite.fill(fallback_color)
+    pygame.draw.rect(sprite, (255, 255, 255), (0, 0, 64, 64), 3)
+    return sprite
+
+
 # Pre-defined base materials
 def create_base_materials() -> List[Item]:
     """Create categorized crafting materials."""
@@ -142,19 +166,17 @@ def create_base_materials() -> List[Item]:
 
     for material_list, category_symbol in all_categories:
         for name, color in material_list:
-            sprite = pygame.Surface((64, 64))
-            sprite.fill(color)
+            # Load PNG image or use fallback colored surface
+            sprite = load_material_image(name, color)
 
-            # Add border
-            pygame.draw.rect(sprite, (255, 255, 255), (0, 0, 64, 64), 3)
-
-            # Add subtle category indicator (corner dot)
-            if "Steel" in name or "Iron" in name or "Blade" in name or "Fang" in name or "Horn" in name or "Obsidian" in name or "Mithril" in name or "Demon" in name:
-                pygame.draw.circle(sprite, (255, 100, 100), (10, 10), 5)  # Red dot for weapons
-            elif "Leather" in name or "Plate" in name or "Scale" in name or "Wood" in name or "Titanium" in name or "Stone" in name or "Shield" in name:
-                pygame.draw.circle(sprite, (100, 100, 255), (10, 10), 5)  # Blue dot for armor
-            else:
-                pygame.draw.circle(sprite, (255, 255, 100), (10, 10), 5)  # Yellow dot for concoctions
+            # Add subtle category indicator (corner dot) only if using fallback
+            if not os.path.exists(os.path.join("assets", "materials", name.lower().replace(" ", "_") + ".png")):
+                if "Steel" in name or "Iron" in name or "Blade" in name or "Fang" in name or "Horn" in name or "Obsidian" in name or "Mithril" in name or "Demon" in name:
+                    pygame.draw.circle(sprite, (255, 100, 100), (10, 10), 5)  # Red dot for weapons
+                elif "Leather" in name or "Plate" in name or "Scale" in name or "Wood" in name or "Titanium" in name or "Stone" in name or "Shield" in name:
+                    pygame.draw.circle(sprite, (100, 100, 255), (10, 10), 5)  # Blue dot for armor
+                else:
+                    pygame.draw.circle(sprite, (255, 255, 100), (10, 10), 5)  # Yellow dot for concoctions
 
             item = Item(
                 name=name,
