@@ -67,30 +67,11 @@ async def generate_sprite(request: SpriteRequest):
         if not request.materials:
             raise HTTPException(status_code=400, detail="Materials list cannot be empty")
 
-        # Check cache first
-        cached_sprite = sprite_cache.get(
-            request.materials,
-            request.item_type,
-            request.seed
-        )
-
-        if cached_sprite:
-            print(f"Cache hit for sprite: {request.materials} -> {request.item_type}")
-            return Response(content=cached_sprite, media_type="image/png")
-
-        # Generate new sprite
+        # Generate new sprite (no caching - each craft is unique)
         print(f"Generating sprite: {request.materials} -> {request.item_type}")
         sprite_data = sprite_gen.generate(
             request.materials,
             request.item_type,
-            request.seed
-        )
-
-        # Cache the result
-        sprite_cache.set(
-            request.materials,
-            request.item_type,
-            sprite_data,
             request.seed
         )
 
@@ -109,19 +90,9 @@ async def generate_stats(request: StatsRequest):
         if not request.materials:
             raise HTTPException(status_code=400, detail="Materials list cannot be empty")
 
-        # Check cache first
-        cached_stats = stats_cache.get(request.materials, request.item_type)
-
-        if cached_stats:
-            print(f"Cache hit for stats: {request.materials} -> {request.item_type}")
-            return cached_stats
-
-        # Generate new stats
+        # Generate new stats (no caching - each craft is unique)
         print(f"Generating stats: {request.materials} -> {request.item_type}")
         stats = stats_gen.generate(request.materials, request.item_type)
-
-        # Cache the result
-        stats_cache.set(request.materials, request.item_type, stats)
 
         return stats
 
