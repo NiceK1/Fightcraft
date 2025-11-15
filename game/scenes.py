@@ -387,9 +387,12 @@ class CombatScene(Scene):
     def __init__(self, game, equipment_slots: EquipmentSlots):
         super().__init__(game)
 
+        # Store equipment for restart functionality
+        self.equipment_slots = equipment_slots
+
         # Create fighters
         self.player = Fighter("Player", max_health=100, is_player=True)
-        self.enemy = Fighter("Enemy", max_health=100, is_player=False)
+        self.enemy = Fighter("Enemy", max_health=800, is_player=False)  # Strong enemy for longer battles
 
         # Equip player items
         self.player.equip_items(
@@ -398,9 +401,9 @@ class CombatScene(Scene):
             equipment_slots.get_equipped_item("concoction")
         )
 
-        # Equip enemy with basic items (for testing)
-        self.enemy.base_damage = 15
-        self.enemy.base_armor = 10
+        # Equip enemy with strong stats (for testing)
+        self.enemy.base_damage = 25
+        self.enemy.base_armor = 20
 
         # Initialize combat
         self.combat = CombatSystem(self.player, self.enemy)
@@ -410,14 +413,39 @@ class CombatScene(Scene):
         self.auto_combat_timer = 0
         self.auto_combat_delay = 1.0  # Seconds between turns
 
+    def restart_battle(self):
+        """Restart the battle with the same equipment."""
+        # Create new fighters
+        self.player = Fighter("Player", max_health=100, is_player=True)
+        self.enemy = Fighter("Enemy", max_health=800, is_player=False)
+
+        # Re-equip player items
+        self.player.equip_items(
+            self.equipment_slots.get_equipped_item("weapon"),
+            self.equipment_slots.get_equipped_item("armor"),
+            self.equipment_slots.get_equipped_item("concoction")
+        )
+
+        # Re-equip enemy stats
+        self.enemy.base_damage = 25
+        self.enemy.base_armor = 20
+
+        # Reset combat system
+        self.combat = CombatSystem(self.player, self.enemy)
+        self.auto_combat = False
+        self.auto_combat_timer = 0
+
     def handle_event(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE and not self.combat.combat_over:
                 # Execute next turn
                 self.combat.execute_turn()
-            elif event.key == pygame.K_a:
+            elif event.key == pygame.K_a and not self.combat.combat_over:
                 # Toggle auto combat
                 self.auto_combat = not self.auto_combat
+            elif event.key == pygame.K_r and self.combat.combat_over:
+                # Restart battle with same equipment
+                self.restart_battle()
             elif event.key == pygame.K_ESCAPE:
                 # Return to crafting
                 self.game.change_scene(CraftingScene(self.game))
@@ -426,7 +454,10 @@ class CombatScene(Scene):
         # Update sprite animations
         self.player.update_sprite(dt)
         self.enemy.update_sprite(dt)
-        
+
+        # Update particle effects
+        self.combat.update_effects(dt)
+
         if self.auto_combat and not self.combat.combat_over:
             self.auto_combat_timer += dt
             if self.auto_combat_timer >= self.auto_combat_delay:
@@ -456,6 +487,9 @@ class CombatScene(Scene):
         self.renderer.render_fighter(self.screen, self.player, player_column_center, 80, True)
         self.renderer.render_fighter(self.screen, self.enemy, enemy_column_center, 80, False)
 
+        # Draw particle effects (on top of fighters, below UI)
+        self.renderer.render_effects(self.screen, self.combat.effect_animator)
+
         # Draw turn indicator (centered, above combat log)
         if not self.combat.combat_over:
             current_fighter = self.combat.turn_order[self.combat.turn % 2]
@@ -480,6 +514,7 @@ class CombatScene(Scene):
             result = "Victory!" if self.combat.player_won else "Defeat!"
             controls = [
                 f"Result: {result}",
+                "R - Restart Battle",
                 "ESC - Return to Crafting"
             ]
 
