@@ -83,17 +83,17 @@ class SpriteGenerator:
             try:
                 if self.ai_provider == "replicate":
                     img = self._generate_with_replicate(materials, item_type, seed)
-                    img = self.remove_bg_photoroom(img)
+                    img = self.remove_bg_clipdrop(img)
                     return img
 
                 elif self.ai_provider == "openai":
                     img = self._generate_with_openai(materials, item_type, seed)
-                    img = self.remove_bg_photoroom(img)
+                    img = self.remove_bg_clipdrop(img)
                     return img
 
                 elif self.ai_provider == "comfyui":
                     img = self._generate_with_comfy(materials, item_type, seed)
-                    img = self.remove_bg_photoroom(img)
+                    img = self.remove_bg_clipdrop(img)
                     return img
             except Exception as e:
                 print(f"AI sprite generation failed: {e}, using fallback")
