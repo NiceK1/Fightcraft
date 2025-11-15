@@ -388,8 +388,8 @@ class CombatScene(Scene):
         super().__init__(game)
 
         # Create fighters
-        self.player = Fighter("Player", max_health=100)
-        self.enemy = Fighter("Enemy", max_health=100)
+        self.player = Fighter("Player", max_health=100, is_player=True)
+        self.enemy = Fighter("Enemy", max_health=100, is_player=False)
 
         # Equip player items
         self.player.equip_items(
@@ -423,6 +423,10 @@ class CombatScene(Scene):
                 self.game.change_scene(CraftingScene(self.game))
 
     def update(self, dt: float):
+        # Update sprite animations
+        self.player.update_sprite(dt)
+        self.enemy.update_sprite(dt)
+        
         if self.auto_combat and not self.combat.combat_over:
             self.auto_combat_timer += dt
             if self.auto_combat_timer >= self.auto_combat_delay:
@@ -430,19 +434,42 @@ class CombatScene(Scene):
                 self.auto_combat_timer = 0
 
     def render(self):
+        # Draw background pattern (subtle)
+        for y in range(0, self.game.height, 40):
+            pygame.draw.line(self.screen, (50, 50, 50), (0, y), (self.game.width, y), 1)
+        
         # Draw title
         title = self.game.font.render("COMBAT!", True, (255, 100, 100))
         title_rect = title.get_rect(center=(self.game.width // 2, 30))
         self.screen.blit(title, title_rect)
+        
+        # Calculate column centers for fighters
+        player_column_center = self.game.width // 4  # Left quarter
+        enemy_column_center = 3 * self.game.width // 4  # Right quarter
+        
+        # Draw VS indicator (centered between columns)
+        vs_text = self.game.font.render("VS", True, (255, 255, 100))
+        vs_rect = vs_text.get_rect(center=(self.game.width // 2, 200))
+        self.screen.blit(vs_text, vs_rect)
 
-        # Draw fighters
-        self.renderer.render_fighter(self.screen, self.player, 50, 100, True)
-        self.renderer.render_fighter(self.screen, self.enemy, 750, 100, False)
+        # Draw fighters (centered in their columns)
+        self.renderer.render_fighter(self.screen, self.player, player_column_center, 80, True)
+        self.renderer.render_fighter(self.screen, self.enemy, enemy_column_center, 80, False)
 
-        # Draw combat log
-        self.renderer.render_combat_log(self.screen, self.combat.combat_log, 400, 400)
+        # Draw turn indicator (centered, above combat log)
+        if not self.combat.combat_over:
+            current_fighter = self.combat.turn_order[self.combat.turn % 2]
+            turn_text = f"Turn {self.combat.turn + 1}: {current_fighter.name}'s turn"
+            turn_surf = self.game.font.render(turn_text, True, (255, 255, 100))
+            turn_rect = turn_surf.get_rect(center=(self.game.width // 2, 350))
+            self.screen.blit(turn_surf, turn_rect)
 
-        # Draw controls
+        # Draw combat log (centered, below turn indicator)
+        log_x = self.game.width // 2 - 150  # Center with width of ~300
+        log_y = 380
+        self.renderer.render_combat_log(self.screen, self.combat.combat_log, log_x, log_y)
+
+        # Draw controls (centered, at bottom)
         if not self.combat.combat_over:
             controls = [
                 "SPACE - Next Turn",
@@ -456,13 +483,8 @@ class CombatScene(Scene):
                 "ESC - Return to Crafting"
             ]
 
+        controls_start_y = 580
         for i, control in enumerate(controls):
             control_surf = self.game.small_font.render(control, True, (200, 200, 200))
-            self.screen.blit(control_surf, (400, 600 + i * 25))
-
-        # Draw turn indicator
-        if not self.combat.combat_over:
-            current_fighter = self.combat.turn_order[self.combat.turn % 2]
-            turn_text = f"Turn {self.combat.turn + 1}: {current_fighter.name}'s turn"
-            turn_surf = self.game.font.render(turn_text, True, (255, 255, 100))
-            self.screen.blit(turn_surf, (400, 350))
+            control_rect = control_surf.get_rect(center=(self.game.width // 2, controls_start_y + i * 25))
+            self.screen.blit(control_surf, control_rect)
