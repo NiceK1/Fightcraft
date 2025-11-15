@@ -140,30 +140,31 @@ class SpriteGenerator:
         image.save(buffer, format='PNG')
         return buffer.getvalue()
         
-    def remove_bg_photoroom(self, image_bytes: bytes) -> bytes:
-        """Remove background using PhotoRoom API."""
-        api_key = os.getenv("PHOTOROOM_API_KEY")
-        if not api_key:
-            print("PHOTOROOM_API_KEY not found, skipping background removal")
+    def remove_bg_removebg(self, image_bytes: bytes) -> bytes:
+    """Remove background using remove.bg API."""
+    api_key = os.getenv("REMOVEBG_API_KEY")
+    if not api_key:
+        print("REMOVEBG_API_KEY not found, skipping background removal")
+        return image_bytes
+
+    try:
+        response = requests.post(
+            "https://api.remove.bg/v1.0/removebg",
+            files={'image_file': ("input.png", image_bytes, "image/png")},
+            data={'size': 'auto'},
+            headers={'X-Api-Key': api_key},
+            timeout=15,
+        )
+
+        if response.status_code != 200:
+            print("remove.bg error:", response.status_code, response.text)
             return image_bytes
 
-        try:
-            response = requests.post(
-                "https://sdk.photoroom.com/v1/segment",
-                headers={"x-api-key": api_key},
-                files={"image_file": ("sprite.png", image_bytes, "image/png")},
-                timeout=10
-            )
+        return response.content
 
-            if response.status_code != 200:
-                print("PhotoRoom error:", response.text)
-                return image_bytes
-
-            return response.content
-
-        except Exception as e:
-            print("PhotoRoom background removal failed:", e)
-            return image_bytes
+    except Exception as e:
+        print("remove.bg background removal failed:", e)
+        return image_bytes
 
     def _generate_with_openai(
         self,
@@ -298,13 +299,13 @@ class SpriteGenerator:
         materials_str = ", ".join(materials).lower()
 
         prompts = {
-            "weapon": f"pixel art game sprite, RPG {item_type}, fantasy weapon made from {materials_str}, "
-                     f"centered on white background, isometric view, 64x64 pixels, detailed, clean lines",
-            "armor": f"pixel art game sprite, RPG {item_type}, fantasy armor made from {materials_str}, "
-                    f"centered on white background, isometric view, 64x64 pixels, detailed, clean lines",
+            "weapon": f"pixel art game sprite, RPG {item_type}, fantasy 2-handed weapon made from {materials_str}, "
+                     f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines",
+            "armor": f"pixel art game sprite, RPG {item_type}, fantasy armor chestpiece made from {materials_str}, "
+                    f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines",
             "concoction": f"pixel art game sprite, fantasy RPG health restore bottle made from {materials_str}, "
                          f"magical glowing flask, video game powerup collectible, cartoon style healing item, "
-                         f"centered on white background, isometric view, 64x64 pixels, detailed, clean lines, bright friendly colors"
+                         f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines, bright friendly colors"
         }
 
         return prompts.get(item_type, f"pixel art game sprite, {item_type} made from {materials_str}")
