@@ -384,14 +384,14 @@ class CharacterSprite:
         # Draw armor layer (also rotated if defeated)
         if self.armor_sprite:
             # Make armor slightly smaller and position it lower to cover body better
-            armor_size = int(self.size * 0.85)  # 85% of sprite size
+            armor_size = int(self.size * 0.5)  # 85% of sprite size
             armor_scaled = pygame.transform.scale(self.armor_sprite, (armor_size, armor_size))
             if not facing_right:
                 armor_scaled = pygame.transform.flip(armor_scaled, True, False)
             
             # Offset armor down to better cover body (not head)
             # Adjusted: was 18%, now 21% (halfway between 18% and 25%)
-            armor_offset_y = int(self.size * 0.21)  # Shift down by 21%
+            armor_offset_y = int(self.size * 0.45)  # Shift down by 21%
             
             # Rotate armor if defeated - maintain relative position to character
             if self.current_state == AnimationState.DEFEATED and self.rotation > 0:
