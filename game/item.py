@@ -107,10 +107,10 @@ def create_base_materials() -> List[Item]:
     weapon_materials = [
         ("Steel Ingot", (180, 180, 190)),
         ("Iron Blade", (140, 140, 150)),
-        ("Dragon Fang", (220, 60, 60)),
+        ("Dragon Shard", (220, 60, 60)),
         ("Obsidian Shard", (50, 50, 60)),
         ("Mithril Bar", (180, 220, 255)),
-        ("Demon Horn", (140, 40, 80)),
+        ("Dark Crystal", (140, 40, 80)),
     ]
 
     # ARMOR MATERIALS - Protective, defensive
@@ -129,7 +129,7 @@ def create_base_materials() -> List[Item]:
         ("Crystal Powder", (150, 220, 255)),
         ("Phoenix Feather", (255, 180, 80)),
         ("Moonflower", (220, 220, 255)),
-        ("Dragon Blood", (180, 20, 20)),
+        ("Dragon Essence", (180, 20, 20)),
         ("Star Dust", (255, 255, 200)),
     ]
 
