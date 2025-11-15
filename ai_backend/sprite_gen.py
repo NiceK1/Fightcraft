@@ -140,7 +140,7 @@ class SpriteGenerator:
         image.save(buffer, format='PNG')
         return buffer.getvalue()
         
-        def remove_bg_photoroom(self, image_bytes: bytes) -> bytes:
+    def remove_bg_photoroom(self, image_bytes: bytes) -> bytes:
         """Remove background using PhotoRoom API."""
         api_key = os.getenv("PHOTOROOM_API_KEY")
         if not api_key:
