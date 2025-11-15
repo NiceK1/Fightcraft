@@ -95,8 +95,8 @@ class SpriteGenerator:
                     img = self._generate_with_comfy(materials, item_type, seed)
                     img = self.remove_bg_photoroom(img)
                     return img
-    except Exception as e:
-        print(f"AI sprite generation failed: {e}, using fallback")
+            except Exception as e:
+                print(f"AI sprite generation failed: {e}, using fallback")
 
         # Fallback to procedural generation
         return self._generate_fallback(materials, item_type, seed)
