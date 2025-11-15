@@ -106,7 +106,7 @@ def create_base_materials() -> List[Item]:
     # Material lists now contain image paths instead of colors
     weapon_materials = [
         ("Steel Ingot",       "assets/clean_images/Steel_Ignot.png"),
-        ("Iron",              "assets/clean_images/Steel_Ignot.png"),
+        ("Iron",              "assets/clean_images/Iron.png"),
         ("Dragon Shard",      "assets/clean_images/Dragon_Shard.png"),
         ("Obsidian Shard",    "assets/clean_images/Obsidian_Shard.png"),
         ("Mithril Bar",       "assets/clean_images/Mithril_Bar.png"),
