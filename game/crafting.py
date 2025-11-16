@@ -155,6 +155,38 @@ class CraftingButton:
         surface.blit(text_surf, text_rect)
 
 
+class FightButton:
+    """Button to start combat."""
+
+    def __init__(self, x: int, y: int, width: int = 150, height: int = 40):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.hovered = False
+
+    def contains_point(self, pos: Tuple[int, int]) -> bool:
+        """Check if position is within button."""
+        return self.rect.collidepoint(pos)
+
+    def render(self, surface: pygame.Surface, font: pygame.font.Font):
+        """Render the fight button."""
+        # Determine button color
+        if self.hovered:
+            color = (200, 80, 80)
+            text_color = (255, 255, 255)
+        else:
+            color = (180, 60, 60)
+            text_color = (255, 255, 255)
+
+        # Draw button
+        pygame.draw.rect(surface, color, self.rect)
+        pygame.draw.rect(surface, (255, 200, 200), self.rect, 2)
+
+        # Draw text
+        text = "Fight"
+        text_surf = font.render(text, True, text_color)
+        text_rect = text_surf.get_rect(center=self.rect.center)
+        surface.blit(text_surf, text_rect)
+
+
 class ResultSlot:
     """Slot to display crafted item result."""
 
