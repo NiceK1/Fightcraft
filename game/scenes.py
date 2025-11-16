@@ -204,7 +204,7 @@ class CraftingScene(Scene):
         offset_y = 60
         
         # Instructions end at ~160, so crafting grid starts below them (shifted down)
-        self.crafting_grid = CraftingGrid(120, 170 + offset_y)
+        self.crafting_grid = CraftingGrid(150, 170 + offset_y)
         # Result slot on the right, same height as crafting grid
         # Result slot: label (30px) + slot (100px) = 130px total
         self.result_slot = ResultSlot(810, 230 + offset_y)
@@ -213,7 +213,7 @@ class CraftingScene(Scene):
         self.craft_button = CraftingButton(760, 390 + offset_y)
         # Inventory will be positioned dynamically below materials label in render()
         # Using approximate position for initialization
-        self.inventory = Inventory(50, 470 + offset_y, rows=2, cols=6)
+        self.inventory = Inventory(80, 470 + offset_y, rows=2, cols=6)
         # Equipment slots on the right, bottom - horizontally arranged
         # Position: right side, below craft button
         # Craft button: y=310, height=50, ends at 360, add 20px spacing = 380
@@ -462,7 +462,7 @@ class CraftingScene(Scene):
 
         # Draw status message at top left
         status_surf = self.game.small_font.render(self.status_message, True, (100, 255, 100))
-        self.screen.blit(status_surf, (50, 10))
+        self.screen.blit(status_surf, (80, 10))
 
         # Draw title at the very top, centered (shifted down)
         offset_y = 60
@@ -527,7 +527,7 @@ class CraftingScene(Scene):
         status_text = f"Materials: {mat_count}"
         status_color = (100, 255, 100) if mat_count >= 1 else (255, 255, 100)
         status_surf = self.game.small_font.render(status_text, True, status_color)
-        self.screen.blit(status_surf, (120, materials_y))
+        self.screen.blit(status_surf, (150, materials_y))
         
         # Position inventory dynamically below materials label
         # Text height is approximately 20px, add 10px spacing
