@@ -35,12 +35,14 @@ class SpriteRequest(BaseModel):
     materials: List[str]
     item_type: str
     seed: Optional[int] = None
+    weapon_subtype: Optional[str] = None
 
 
 class StatsRequest(BaseModel):
     """Request model for stats generation."""
     materials: List[str]
     item_type: Optional[str] = None
+    weapon_subtype: Optional[str] = None
 
 
 @app.get("/")
@@ -68,11 +70,12 @@ async def generate_sprite(request: SpriteRequest):
             raise HTTPException(status_code=400, detail="Materials list cannot be empty")
 
         # Generate new sprite (no caching - each craft is unique)
-        print(f"Generating sprite: {request.materials} -> {request.item_type}")
+        print(f"Generating sprite: {request.materials} -> {request.item_type} (subtype: {request.weapon_subtype})")
         sprite_data = sprite_gen.generate(
             request.materials,
             request.item_type,
-            request.seed
+            request.seed,
+            request.weapon_subtype
         )
 
         return Response(content=sprite_data, media_type="image/png")
@@ -91,8 +94,8 @@ async def generate_stats(request: StatsRequest):
             raise HTTPException(status_code=400, detail="Materials list cannot be empty")
 
         # Generate new stats (no caching - each craft is unique)
-        print(f"Generating stats: {request.materials} -> {request.item_type}")
-        stats = stats_gen.generate(request.materials, request.item_type)
+        print(f"Generating stats: {request.materials} -> {request.item_type} (subtype: {request.weapon_subtype})")
+        stats = stats_gen.generate(request.materials, request.item_type, request.weapon_subtype)
 
         return stats
 

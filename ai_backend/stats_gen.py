@@ -2,6 +2,12 @@
 import random
 from typing import List, Dict, Any, Optional
 import os
+import sys
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from game.effects import EFFECT_POOL
 
 
 class StatsGenerator:
@@ -55,7 +61,8 @@ class StatsGenerator:
     def generate(
         self,
         materials: List[str],
-        item_type: Optional[str] = None
+        item_type: Optional[str] = None,
+        weapon_subtype: Optional[str] = None
     ) -> Dict[str, Any]:
         """Generate item stats and properties."""
 
@@ -67,9 +74,9 @@ class StatsGenerator:
         if self.use_ai and self.client:
             try:
                 if self.ai_provider == "anthropic":
-                    return self._generate_with_anthropic(materials, item_type)
+                    return self._generate_with_anthropic(materials, item_type, weapon_subtype)
                 elif self.ai_provider == "openai":
-                    return self._generate_with_openai(materials, item_type)
+                    return self._generate_with_openai(materials, item_type, weapon_subtype)
             except Exception as e:
                 print(f"AI generation failed: {e}, using fallback")
 
@@ -102,18 +109,32 @@ class StatsGenerator:
     def _generate_with_anthropic(
         self,
         materials: List[str],
-        item_type: str
+        item_type: str,
+        weapon_subtype: Optional[str] = None
     ) -> Dict[str, Any]:
         """Generate stats using Anthropic Claude."""
 
         materials_str = ", ".join(materials)
 
+        # Filter effects by item type
+        applicable_effects = [e for e in EFFECT_POOL if item_type in e["applies_to"]]
+        effects_list = "\n".join([f"- {e['type']}: {e['description']}" for e in applicable_effects])
+
+        # Build item type description with weapon subtype if applicable
+        item_type_desc = item_type
+        if item_type == "weapon" and weapon_subtype:
+            item_type_desc = f"{weapon_subtype} (weapon)"
+
         prompt = f"""You are a game balance designer for an RPG crafting game. Create an item with these properties:
 
-**Item Type:** {item_type}
+**Item Type:** {item_type_desc}
 **Materials Used:** {materials_str}
 
+**Available Special Effects** (choose ONE from this list, or leave empty for common items):
+{effects_list}
+
 Generate balanced and creative stats. Consider the properties implied by each material name.
+{f"Note: This is a {weapon_subtype}, so create an appropriate name for this weapon type." if weapon_subtype else ""}
 
 Provide your response in this exact JSON format:
 {{
@@ -122,17 +143,21 @@ Provide your response in this exact JSON format:
   "armor": 0-100 (integer, for armor only, 0 for non-armor),
   "health": 0-50 (integer, health boost, mainly for concoctions),
   "speed": 0.5-2.0 (float, speed multiplier, 1.0 is normal),
-  "special_effect": "brief description of special ability or empty string",
+  "effect_type": "one of the effect types from the list above, or empty string",
+  "effect_power": 0.1-1.0 (float, magnitude of effect, e.g. 0.3 = 30% lifesteal, or 15 = fire damage per turn),
+  "special_effect": "brief flavor text describing the effect",
   "rarity": "common|uncommon|rare|epic|legendary",
   "description": "1-2 sentences of flavor text"
 }}
 
 **Balance Guidelines:**
 - Weapons: high damage, low/zero armor
-- Armor: high armor, low/zero damage
+- Armor: high armor, low/zero armor
 - Concoctions: buffs (health, speed, special effects)
 - Rarer materials = higher rarity and stats
 - Total stat budget: common=30, uncommon=50, rare=80, epic=120, legendary=180
+- Only rare+ items should have special effects
+- Effect power should scale with rarity: rare=0.2-0.3, epic=0.4-0.6, legendary=0.7-1.0
 
 Return ONLY the JSON, no other text."""
 
@@ -163,7 +188,8 @@ Return ONLY the JSON, no other text."""
         print(f"  Item: {stats.get('name', 'Unknown')}")
         print(f"  Type: {item_type} | Rarity: {stats.get('rarity', 'unknown')}")
         print(f"  Damage: {stats.get('damage', 0)} | Armor: {stats.get('armor', 0)} | Health: {stats.get('health', 0)} | Speed: {stats.get('speed', 1.0)}")
-        print(f"  Effect: {stats.get('special_effect', 'None')}")
+        print(f"  Effect Type: {stats.get('effect_type', 'None')} | Power: {stats.get('effect_power', 0.0)}")
+        print(f"  Effect Description: {stats.get('special_effect', 'None')}")
         print(f"  Description: {stats.get('description', 'No description')}")
 
         return stats
@@ -171,19 +197,33 @@ Return ONLY the JSON, no other text."""
     def _generate_with_openai(
         self,
         materials: List[str],
-        item_type: str
+        item_type: str,
+        weapon_subtype: Optional[str] = None
     ) -> Dict[str, Any]:
         """Generate stats using OpenAI GPT-4."""
 
         materials_str = ", ".join(materials)
+
+        # Filter effects by item type
+        applicable_effects = [e for e in EFFECT_POOL if item_type in e["applies_to"]]
+        effects_list = "\n".join([f"- {e['type']}: {e['description']}" for e in applicable_effects])
+
+        # Build item type description with weapon subtype if applicable
+        item_type_desc = item_type
+        if item_type == "weapon" and weapon_subtype:
+            item_type_desc = f"{weapon_subtype} (weapon)"
 
         system_prompt = """You are a game balance designer for an RPG crafting game.
 Generate balanced and creative item stats based on the materials used in crafting.
 Consider the properties implied by each material name when assigning stats."""
 
         user_prompt = f"""Create an item with these properties:
-- Type: {item_type}
+- Type: {item_type_desc}
 - Materials used: {materials_str}
+{f"- Note: This is a {weapon_subtype}, so create an appropriate name for this weapon type." if weapon_subtype else ""}
+
+**Available Special Effects** (choose ONE from this list, or leave empty for common items):
+{effects_list}
 
 Provide the following in JSON format:
 - name: creative name for the item
@@ -191,7 +231,9 @@ Provide the following in JSON format:
 - armor: integer 0-100 (for armor, 0 for non-armor)
 - health: integer 0-50 (health boost, mainly for concoctions)
 - speed: float 0.5-2.0 (speed multiplier, 1.0 is normal)
-- special_effect: brief description of special ability (optional, can be empty)
+- effect_type: one of the effect types from the list above, or empty string
+- effect_power: float 0.1-1.0 (magnitude of effect, e.g. 0.3 = 30% lifesteal, or 15 = fire damage per turn)
+- special_effect: brief flavor text describing the effect
 - rarity: one of [common, uncommon, rare, epic, legendary]
 - description: brief flavor text (1-2 sentences)
 
@@ -200,7 +242,9 @@ Balance guidelines:
 - Armor should have high armor, low/zero damage
 - Concoctions should provide buffs (health, speed, special effects)
 - Rarer materials should increase item rarity and stats
-- Total stat budget: common=30, uncommon=50, rare=80, epic=120, legendary=180"""
+- Total stat budget: common=30, uncommon=50, rare=80, epic=120, legendary=180
+- Only rare+ items should have special effects
+- Effect power should scale with rarity: rare=0.2-0.3, epic=0.4-0.6, legendary=0.7-1.0"""
 
         response = self.client.chat.completions.create(
             model="gpt-4o-mini",
@@ -224,7 +268,8 @@ Balance guidelines:
         print(f"  Item: {stats.get('name', 'Unknown')}")
         print(f"  Type: {item_type} | Rarity: {stats.get('rarity', 'unknown')}")
         print(f"  Damage: {stats.get('damage', 0)} | Armor: {stats.get('armor', 0)} | Health: {stats.get('health', 0)} | Speed: {stats.get('speed', 1.0)}")
-        print(f"  Effect: {stats.get('special_effect', 'None')}")
+        print(f"  Effect Type: {stats.get('effect_type', 'None')} | Power: {stats.get('effect_power', 0.0)}")
+        print(f"  Effect Description: {stats.get('special_effect', 'None')}")
         print(f"  Description: {stats.get('description', 'No description')}")
 
         return stats
@@ -255,6 +300,8 @@ Balance guidelines:
             "armor": 0,
             "health": 0,
             "speed": 1.0,
+            "effect_type": "",
+            "effect_power": 0.0,
             "special_effect": "",
             "rarity": rarity,
             "description": ""
@@ -264,19 +311,22 @@ Balance guidelines:
         if item_type == "weapon":
             stats["damage"] = self._scale_stat(power_level, 10, 80)
             stats["speed"] = random.uniform(0.8, 1.3)
-            stats["special_effect"] = self._generate_weapon_effect(materials, power_level)
+            effect_data = self._choose_effect(item_type, power_level)
+            stats.update(effect_data)
             stats["description"] = f"A powerful {item_type} forged from {', '.join(materials)}."
 
         elif item_type == "armor":
             stats["armor"] = self._scale_stat(power_level, 10, 80)
             stats["speed"] = random.uniform(0.7, 1.0)  # Armor slows you down
-            stats["special_effect"] = self._generate_armor_effect(materials, power_level)
+            effect_data = self._choose_effect(item_type, power_level)
+            stats.update(effect_data)
             stats["description"] = f"Sturdy {item_type} crafted from {', '.join(materials)}."
 
         elif item_type == "concoction":
             stats["health"] = self._scale_stat(power_level, 15, 50)
             stats["speed"] = random.uniform(1.0, 1.5)
-            stats["special_effect"] = self._generate_concoction_effect(materials, power_level)
+            effect_data = self._choose_effect(item_type, power_level)
+            stats.update(effect_data)
             stats["description"] = f"A magical brew created from {', '.join(materials)}."
 
         return stats
@@ -347,56 +397,46 @@ Balance guidelines:
 
         return f"{primary_material} {suffix}"
 
-    def _generate_weapon_effect(self, materials: List[str], power_level: float) -> str:
-        """Generate special effect for weapon."""
+    def _choose_effect(self, item_type: str, power_level: float) -> Dict[str, Any]:
+        """Choose a random effect from the pool based on item type and power level."""
+        # Only apply effects to items with sufficient power level
         if power_level < 0.4:
-            return ""
+            return {
+                "effect_type": "",
+                "effect_power": 0.0,
+                "special_effect": ""
+            }
 
-        effects = []
-        materials_str = " ".join(materials).lower()
+        # Filter effects that apply to this item type
+        applicable_effects = [e for e in EFFECT_POOL if item_type in e["applies_to"]]
 
-        if "fire" in materials_str or "dragon" in materials_str:
-            effects.append("Burns enemies for extra damage")
-        if "ice" in materials_str or "crystal" in materials_str:
-            effects.append("Chance to freeze enemies")
-        if "dark" in materials_str or "shadow" in materials_str:
-            effects.append("Drains enemy health")
-        if "magic" in materials_str or "essence" in materials_str:
-            effects.append("Deals bonus magical damage")
+        if not applicable_effects:
+            return {
+                "effect_type": "",
+                "effect_power": 0.0,
+                "special_effect": ""
+            }
 
-        return random.choice(effects) if effects else "Sharp and deadly"
+        # Choose random effect
+        chosen = random.choice(applicable_effects)
 
-    def _generate_armor_effect(self, materials: List[str], power_level: float) -> str:
-        """Generate special effect for armor."""
-        if power_level < 0.4:
-            return ""
+        # Scale effect power based on power level
+        # power_level 0.4-0.5 = 0.2-0.3 effect power
+        # power_level 0.5-0.7 = 0.3-0.5 effect power
+        # power_level 0.7+ = 0.5-0.8 effect power
+        if power_level < 0.5:
+            effect_power = random.uniform(0.2, 0.3)
+        elif power_level < 0.7:
+            effect_power = random.uniform(0.3, 0.5)
+        else:
+            effect_power = random.uniform(0.5, 0.8)
 
-        effects = []
-        materials_str = " ".join(materials).lower()
+        # For DoT effects (fire, poison, bleed), power represents damage per turn
+        if chosen["type"] in ["fire", "poison", "bleed"]:
+            effect_power = random.uniform(8, 20) * power_level
 
-        if "dragon" in materials_str:
-            effects.append("High resistance to fire")
-        if "crystal" in materials_str or "magic" in materials_str:
-            effects.append("Reflects magical attacks")
-        if "iron" in materials_str or "steel" in materials_str:
-            effects.append("Reduces physical damage")
-        if "dark" in materials_str:
-            effects.append("Grants stealth bonus")
-
-        return random.choice(effects) if effects else "Sturdy protection"
-
-    def _generate_concoction_effect(self, materials: List[str], power_level: float) -> str:
-        """Generate special effect for concoction."""
-        effects = []
-        materials_str = " ".join(materials).lower()
-
-        if "magic" in materials_str or "essence" in materials_str:
-            effects.append("Grants temporary magic power")
-        if "dragon" in materials_str:
-            effects.append("Increases damage resistance")
-        if "crystal" in materials_str:
-            effects.append("Speeds up health regeneration")
-        if "dark" in materials_str:
-            effects.append("Grants temporary invisibility")
-
-        return random.choice(effects) if effects else "Boosts vitality"
+        return {
+            "effect_type": chosen["type"],
+            "effect_power": round(effect_power, 2),
+            "special_effect": chosen["name"]
+        }

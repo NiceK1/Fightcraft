@@ -286,6 +286,10 @@ class CharacterSprite:
     
     def start_hit_animation(self, duration: float = 0.4):
         """Start hit animation."""
+        self.current_state = AnimationState.HIT
+        self.animation_timer = 0.0
+        self.animation_duration = duration
+        # Set hit expression
         self.face_expression = FaceExpression.HIT
         self.face_expression_timer = 0.0
         self.face_expression_duration = duration
@@ -314,7 +318,24 @@ class CharacterSprite:
                 else:
                     t = (progress - 0.5) * 2
                     self.offset_x = int(30 * (1 - t * t))
-        
+
+        elif self.current_state == AnimationState.HIT:
+            self.animation_timer += dt
+            if self.animation_timer >= self.animation_duration:
+                self.current_state = AnimationState.IDLE
+                self.offset_x = 0
+                self.offset_y = 0
+            else:
+                # Hit motion: recoil backward
+                progress = self.animation_timer / self.animation_duration
+                # Quick recoil then return
+                if progress < 0.3:
+                    t = progress / 0.3
+                    self.offset_x = -int(15 * t)  # Move back
+                else:
+                    t = (progress - 0.3) / 0.7
+                    self.offset_x = -int(15 * (1 - t))  # Return to position
+
         elif self.current_state == AnimationState.DEFEATED:
             self.animation_timer += dt
             if self.animation_timer < self.animation_duration:
@@ -342,15 +363,16 @@ class CharacterSprite:
     def render(self, surface: pygame.Surface, x: int, y: int, facing_right: bool = True):
         """
         Render character sprite with equipment.
-        
+
         Args:
             surface: Target surface
             x: X position
             y: Y position
             facing_right: Whether character faces right
         """
-        # Apply animation offset
-        render_x = x + self.offset_x
+        # Apply animation offset (invert x offset if facing left)
+        offset_x = self.offset_x if facing_right else -self.offset_x
+        render_x = x + offset_x
         render_y = y + self.offset_y
         
         # Flip sprite if facing left
@@ -434,7 +456,7 @@ class CharacterSprite:
             hand_offset_y = 38
             
             if facing_right:
-                weapon_x = render_x + self.size // 2 + hand_offset_x - weapon_size // 2 + (self.offset_x // 2)
+                weapon_x = render_x + self.size // 2 + hand_offset_x - weapon_size // 2 + (offset_x // 2)
                 weapon_y = render_y + self.size // 2 - 10 + hand_offset_y - weapon_size // 2
                 # Rotate weapon during attack
                 if self.current_state == AnimationState.ATTACK:
@@ -442,20 +464,20 @@ class CharacterSprite:
                     angle = -60 * math.sin(progress * math.pi)
                     # Rotate around hand position
                     rotated_weapon = pygame.transform.rotate(weapon_scaled, angle)
-                    weapon_rect = rotated_weapon.get_rect(center=(render_x + self.size // 2 + hand_offset_x, 
+                    weapon_rect = rotated_weapon.get_rect(center=(render_x + self.size // 2 + hand_offset_x,
                                                                   render_y + self.size // 2 - 10 + hand_offset_y))
                     surface.blit(rotated_weapon, weapon_rect.topleft)
                 else:
                     surface.blit(weapon_scaled, (weapon_x, weapon_y))
             else:
-                weapon_x = render_x + self.size // 2 + hand_offset_x - weapon_size // 2 - (self.offset_x // 2)
+                weapon_x = render_x + self.size // 2 + hand_offset_x - weapon_size // 2 + (offset_x // 2)
                 weapon_y = render_y + self.size // 2 - 10 + hand_offset_y - weapon_size // 2
                 weapon_scaled = pygame.transform.flip(weapon_scaled, True, False)
                 if self.current_state == AnimationState.ATTACK:
                     progress = self.animation_timer / self.animation_duration
                     angle = 60 * math.sin(progress * math.pi)
                     rotated_weapon = pygame.transform.rotate(weapon_scaled, angle)
-                    weapon_rect = rotated_weapon.get_rect(center=(render_x + self.size // 2 + hand_offset_x, 
+                    weapon_rect = rotated_weapon.get_rect(center=(render_x + self.size // 2 + hand_offset_x,
                                                                   render_y + self.size // 2 - 10 + hand_offset_y))
                     surface.blit(rotated_weapon, weapon_rect.topleft)
                 else:

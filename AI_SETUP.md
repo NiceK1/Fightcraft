@@ -33,6 +33,12 @@ To get **AI-generated sprites** and **creative item descriptions**, follow these
 2. Sign up or log in
 3. Copy your API token
 
+#### For Background Removal (Clipdrop - Optional)
+1. Go to https://clipdrop.co/apis
+2. Sign up or log in
+3. Get your API key for background removal
+4. This removes backgrounds from AI-generated sprites for cleaner visuals
+
 ### Step 2: Create .env File
 
 1. Copy `.env.example` to `.env`:
@@ -49,6 +55,9 @@ To get **AI-generated sprites** and **creative item descriptions**, follow these
 
    # For sprite generation
    REPLICATE_API_TOKEN=your-replicate-token-here
+
+   # Optional: For background removal on sprites
+   CLIPDROP_API_KEY=your-clipdrop-key-here
    ```
 
 ### Step 3: Restart the Backend

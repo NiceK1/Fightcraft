@@ -33,7 +33,9 @@ class ItemStats:
     armor: int = 0
     speed: float = 1.0
     health: int = 0
-    special_effect: str = ""
+    effect_type: str = ""  # Type of special effect (fire, lifesteal, etc.)
+    effect_power: float = 0.0  # Power/magnitude of effect
+    special_effect: str = ""  # Human-readable description
 
 
 @dataclass

@@ -1,12 +1,108 @@
 """Game scenes for Fightcraft."""
 import pygame
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 from game.engine import Scene
 from game.item import create_base_materials, Item, ItemType
 from game.inventory import Inventory, EquipmentSlots
-from game.crafting import CraftingGrid, CraftingSystem, CraftingButton, ResultSlot
+from game.crafting import CraftingGrid, CraftingSystem, CraftingButton, ResultSlot, FightButton
 from game.combat import Fighter, CombatSystem, CombatRenderer
 from game.ai_client import AIClient
+
+
+class InfoButton:
+    """Small info button that shows a popup when clicked."""
+
+    def __init__(self, x: int, y: int, size: int = 24):
+        self.x = x
+        self.y = y
+        self.size = size
+        self.rect = pygame.Rect(x, y, size, size)
+        self.hovered = False
+
+    def contains_point(self, pos: Tuple[int, int]) -> bool:
+        """Check if position is within button."""
+        return self.rect.collidepoint(pos)
+
+    def render(self, surface: pygame.Surface):
+        """Render the info button with an 'i' icon."""
+        # Draw circle background
+        center = (self.x + self.size // 2, self.y + self.size // 2)
+        color = (100, 150, 255) if self.hovered else (70, 120, 200)
+        pygame.draw.circle(surface, color, center, self.size // 2)
+        pygame.draw.circle(surface, (255, 255, 255), center, self.size // 2, 2)
+
+        # Draw 'i' icon
+        font = pygame.font.Font(None, int(self.size * 1.2))
+        text = font.render("i", True, (255, 255, 255))
+        text_rect = text.get_rect(center=center)
+        surface.blit(text, text_rect)
+
+
+# Rarity colors (standard RPG colors)
+RARITY_COLORS = {
+    "common": (180, 180, 180),  # Gray
+    "uncommon": (80, 255, 80),  # Green
+    "rare": (80, 140, 255),     # Blue
+    "epic": (200, 80, 255),     # Purple
+    "legendary": (255, 165, 0)  # Orange/Gold
+}
+
+
+def render_tooltip(surface: pygame.Surface, font: pygame.font.Font, small_font: pygame.font.Font,
+                   lines: List[Tuple[str, tuple]], x: int, y: int, screen_width: int, screen_height: int):
+    """
+    Render a tooltip with multiple colored lines.
+
+    Args:
+        surface: Surface to draw on
+        font: Font for title/header
+        small_font: Font for body text
+        lines: List of (text, color) tuples
+        x, y: Position to render (will adjust if near screen edges)
+        screen_width, screen_height: Screen dimensions for edge detection
+    """
+    if not lines:
+        return
+
+    padding = 10
+    line_spacing = 3
+
+    # Calculate tooltip dimensions
+    max_width = 0
+    total_height = padding * 2
+    line_surfaces = []
+
+    for i, (text, color) in enumerate(lines):
+        # Use regular font for first line (title), small font for rest
+        use_font = font if i == 0 else small_font
+        surf = use_font.render(text, True, color)
+        line_surfaces.append(surf)
+        max_width = max(max_width, surf.get_width())
+        total_height += surf.get_height() + line_spacing
+
+    total_height -= line_spacing  # Remove last spacing
+    tooltip_width = max_width + padding * 2
+
+    # Adjust position to keep tooltip on screen
+    if x + tooltip_width > screen_width:
+        x = screen_width - tooltip_width - 5
+    if y + total_height > screen_height:
+        y = screen_height - total_height - 5
+    if x < 5:
+        x = 5
+    if y < 5:
+        y = 5
+
+    # Draw tooltip background
+    tooltip_rect = pygame.Rect(x, y, tooltip_width, total_height)
+    pygame.draw.rect(surface, (40, 40, 40), tooltip_rect)
+    pygame.draw.rect(surface, (200, 200, 200), tooltip_rect, 2)
+
+    # Draw lines
+    current_y = y + padding
+    for surf in line_surfaces:
+        surface.blit(surf, (x + padding, current_y))
+        current_y += surf.get_height() + line_spacing
 
 
 class MainMenuScene(Scene):
@@ -21,7 +117,10 @@ class MainMenuScene(Scene):
 
         self.options = ["Start Game", "Quit"]
         self.selected = 0
-        
+        self.pressed_option = None  # Track which option is being pressed
+        self.press_timer = 0.0  # Timer for press animation
+        self.logo = pygame.image.load("assets/logo/logo.png").convert_alpha()
+        self.logo = pygame.transform.scale(self.logo, (450, 280))
     def handle_event(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP:
@@ -29,44 +128,118 @@ class MainMenuScene(Scene):
             elif event.key == pygame.K_DOWN:
                 self.selected = (self.selected + 1) % len(self.options)
             elif event.key == pygame.K_RETURN:
-                if self.selected == 0:
-                    # Start game - go to crafting scene
-                    self.game.change_scene(CraftingScene(self.game))
-                elif self.selected == 1:
-                    # Quit
-                    self.game.quit()
+                self._execute_option(self.selected)
+        
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # Handle mouse click on menu options
+            mouse_pos = event.pos
+            for i, option in enumerate(self.options):
+                text = self.menu_font.render(option, True, (200, 200, 200))
+                text_rect = text.get_rect(center=(self.game.width // 2, 350 + i * 60))
+                # Use inflated rect for easier clicking
+                click_rect = text_rect.inflate(20, 10)
+                if click_rect.collidepoint(mouse_pos):
+                    self.pressed_option = i
+                    self.press_timer = 0.15  # 150ms press animation
+                    break
+        
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            # Handle mouse release
+            if self.pressed_option is not None:
+                mouse_pos = event.pos
+                i = self.pressed_option
+                text = self.menu_font.render(self.options[i], True, (200, 200, 200))
+                text_rect = text.get_rect(center=(self.game.width // 2, 350 + i * 60))
+                click_rect = text_rect.inflate(20, 10)
+                if click_rect.collidepoint(mouse_pos):
+                    self._execute_option(i)
+                self.pressed_option = None
+                self.press_timer = 0.0
+
+    def _execute_option(self, index: int):
+        """Execute the action for the selected menu option."""
+        if index == 0:
+            # Start game - go to crafting scene
+            self.game.change_scene(CraftingScene(self.game))
+        elif index == 1:
+            # Quit
+            self.game.quit()
 
     def update(self, dt: float):
-        pass
+        # Update selected option based on mouse hover
+        mouse_pos = pygame.mouse.get_pos()
+        hover_found = False
+        for i, option in enumerate(self.options):
+            text = self.menu_font.render(option, True, (200, 200, 200))
+            text_rect = text.get_rect(center=(self.game.width // 2, 350 + i * 60))
+            hover_rect = text_rect.inflate(20, 10)
+            if hover_rect.collidepoint(mouse_pos):
+                self.selected = i
+                hover_found = True
+                break
+        
+        # If mouse is not over any option, keep current selection (for keyboard navigation)
+        
+        # Update press timer
+        if self.press_timer > 0:
+            self.press_timer = max(0, self.press_timer - dt)
 
     def render(self):
-        # Draw title
-        logo_rect = self.logo.get_rect(center=(self.game.width // 2, 150))
-
+        # Draw title image
+        logo_rect = self.logo.get_rect(center=(self.game.width // 2, 170))
         self.screen.blit(self.logo, logo_rect)
 
         # Draw subtitle
         subtitle = self.game.small_font.render(
             "AI-Powered Crafting & Combat", True, (200, 200, 200)
         )
-        subtitle_rect = subtitle.get_rect(center=(self.game.width // 2, 270))
+        subtitle_rect = subtitle.get_rect(center=(self.game.width // 2, 290))
         self.screen.blit(subtitle, subtitle_rect)
 
-        # Draw menu options
-        for i, option in enumerate(self.options):
-            color = (255, 255, 100) if i == self.selected else (200, 200, 200)
-            text = self.menu_font.render(option, True, color)
-            text_rect = text.get_rect(center=(self.game.width // 2, 380 + i * 60))
-            self.screen.blit(text, text_rect)
+        rendered = [self.menu_font.render(opt, True, (255, 255, 255)) for opt in self.options]
+        text_y_start = 350
+        mouse_pos = pygame.mouse.get_pos()
 
-            # Draw selector
-            if i == self.selected:
-                pygame.draw.rect(
-                    self.screen,
-                    (255, 255, 100),
-                    text_rect.inflate(20, 10),
-                    3
-                )
+        for i, option in enumerate(self.options):
+            text_surface = self.menu_font.render(option, True, (255, 255, 255))
+            text_rect = text_surface.get_rect(center=(self.game.width // 2, text_y_start + i * 70))
+
+            is_hovered = text_rect.inflate(30, 20).collidepoint(mouse_pos) and self.pressed_option is None
+            is_pressed = (self.pressed_option == i) and self.press_timer > 0
+
+            if is_pressed:
+                text_color = (170, 170, 170)
+                glow_color = (220, 220, 120)
+                offset_y = 1
+                glow_strength = 0
+            elif is_hovered:
+                text_color = (255, 255, 120)
+                glow_color = (255, 255, 180)
+                offset_y = 0
+                glow_strength = 3
+            else:
+                text_color = (200, 200, 200)
+                glow_color = None
+                offset_y = 0
+                glow_strength = 0
+
+        # Glow effect ONLY on hover
+            if is_hovered and glow_color:
+                for blur in [15, 10, 5]:
+                    glow_surf = pygame.Surface(
+                        (text_rect.width + blur*2, text_rect.height + blur*2),
+                        pygame.SRCALPHA
+                    )
+                    alpha = max(0, 35 - blur * 2)
+                    glow_text = self.menu_font.render(option, True, (*glow_color, alpha))
+                    glow_surf.blit(glow_text, (blur, blur))
+                    glow_pos = (text_rect.x - blur, text_rect.y - blur)
+                    self.screen.blit(glow_surf, glow_pos)
+
+        # Draw final text
+            final_text = self.menu_font.render(option, True, text_color)
+            final_rect = final_text.get_rect(center=(text_rect.centerx, text_rect.centery + offset_y))
+            self.screen.blit(final_text, final_rect)
 
 
 class CraftingScene(Scene):
@@ -89,22 +262,31 @@ class CraftingScene(Scene):
         }
 
         # Create UI elements - positioned according to layout
-        # Instructions end at ~160, so crafting grid starts below them
-        self.crafting_grid = CraftingGrid(120, 170)
+        # Fight button at top center
+        fight_button_width = 150
+        fight_button_x = (self.game.width - fight_button_width) // 2  # Centered
+        fight_button_y = 10
+        self.fight_button = FightButton(fight_button_x, fight_button_y, width=fight_button_width, height=40)
+        
+        # Shift all elements down by 60px to make room for Fight button
+        offset_y = 60
+        
+        # Instructions end at ~160, so crafting grid starts below them (shifted down)
+        self.crafting_grid = CraftingGrid(150, 170 + offset_y)
         # Result slot on the right, same height as crafting grid
         # Result slot: label (30px) + slot (100px) = 130px total
-        self.result_slot = ResultSlot(810, 230)
+        self.result_slot = ResultSlot(810, 230 + offset_y)
         # Craft button below result slot
         # Result slot ends at 170 + 130 = 300, add 10px spacing = 310
-        self.craft_button = CraftingButton(760, 390)
+        self.craft_button = CraftingButton(760, 390 + offset_y)
         # Inventory will be positioned dynamically below materials label in render()
         # Using approximate position for initialization
-        self.inventory = Inventory(50, 470, rows=2, cols=6)
+        self.inventory = Inventory(80, 470 + offset_y, rows=2, cols=6)
         # Equipment slots on the right, bottom - horizontally arranged
         # Position: right side, below craft button
         # Craft button: y=310, height=50, ends at 360, add 20px spacing = 380
         equipment_x = 700  # Align with result slot
-        equipment_y = 465  # Below craft button with spacing
+        equipment_y = 465 + offset_y  # Below craft button with spacing
         self.equipment_slots = EquipmentSlots(equipment_x, equipment_y)
 
         # Store all materials by category
@@ -112,6 +294,10 @@ class CraftingScene(Scene):
         self.weapon_materials = all_materials[0:6]
         self.armor_materials = all_materials[6:12]
         self.concoction_materials = all_materials[12:18]
+
+        # Weapon type selection (for weapon tab only)
+        self.weapon_types = ["sword", "axe", "spear"]
+        self.selected_weapon_type = "sword"  # Default to sword
 
         # Populate inventory based on current tab
         self._update_inventory_for_tab()
@@ -125,12 +311,109 @@ class CraftingScene(Scene):
         self.generating = False
         self.generation_message = ""
 
+        # Item description display (shown after crafting)
+        self.last_crafted_item: Optional[Item] = None
+
+        # Info button for showing description popup
+        # Position it next to the result slot
+        self.info_button = InfoButton(self.result_slot.slot.x + 110, self.result_slot.slot.y)
+        self.show_description_popup = False
+
         # Check backend
         backend_available = self.ai_client.check_backend_health()
         if backend_available:
             self.status_message = "AI Backend connected!"
         else:
             self.status_message = "AI Backend offline - using fallback generation"
+
+    def _get_item_tooltip_lines(self, item: Item) -> List[Tuple[str, tuple]]:
+        """Generate tooltip lines for an item with appropriate colors."""
+        try:
+            lines = []
+
+            # For materials, just show the name
+            if item.item_type == ItemType.MATERIAL:
+                lines.append((item.name, (200, 200, 200)))
+                return lines
+
+            # For crafted items, show detailed stats
+            # Get rarity color - handle both string and Enum rarity
+            try:
+                if hasattr(item.rarity, '_name'):
+                    rarity_str = item.rarity._name.lower()
+                else:
+                    rarity_str = str(item.rarity).lower()
+            except:
+                rarity_str = "common"
+
+            rarity_color = RARITY_COLORS.get(rarity_str, (200, 200, 200))
+
+            # Line 1: Item name (colored by rarity)
+            lines.append((f"Item: {item.name}", rarity_color))
+
+            # Line 2: Type and Rarity
+            type_str = item.item_type.value if hasattr(item.item_type, 'value') else str(item.item_type)
+            rarity_display = item.rarity._name.lower() if hasattr(item.rarity, '_name') else str(item.rarity)
+            lines.append((f"Type: {type_str} | Rarity: {rarity_display}", (200, 200, 200)))
+
+            # Line 3: Stats (with safe access)
+            damage = getattr(item.stats, 'damage', 0)
+            armor = getattr(item.stats, 'armor', 0)
+            health = getattr(item.stats, 'health', 0)
+            speed = getattr(item.stats, 'speed', 1.0)
+            stats_line = f"Damage: {damage} | Armor: {armor} | Health: {health} | Speed: {speed:.1f}"
+            lines.append((stats_line, (200, 200, 200)))
+
+            # Line 4: Effect Type and Power (if present)
+            effect_type = getattr(item.stats, 'effect_type', '')
+            if effect_type:
+                effect_power = getattr(item.stats, 'effect_power', 0.0)
+                effect_line = f"Effect Type: {effect_type} | Power: {effect_power:.2f}"
+                lines.append((effect_line, (150, 255, 150)))
+
+            return lines
+        except Exception as e:
+            # Fallback to simple tooltip if there's any error
+            print(f"Error generating tooltip: {e}")
+            return [(item.name if hasattr(item, 'name') else "Item", (200, 200, 200))]
+
+    def _render_weapon_type_selector(self, mouse_pos: Tuple[int, int]):
+        """Render radio buttons for weapon type selection."""
+        # Position to the right of the crafting grid
+        selector_x = 500
+        selector_y = 280
+
+        # Title
+        title_surf = self.game.small_font.render("Weapon Type:", True, (255, 200, 100))
+        self.screen.blit(title_surf, (selector_x, selector_y))
+
+        # Radio buttons (with more spacing from title)
+        button_y = selector_y + 40
+        button_spacing = 30
+        radio_radius = 8
+
+        for i, weapon_type in enumerate(self.weapon_types):
+            # Calculate button position
+            button_x = selector_x + 10
+            current_button_y = button_y + i * button_spacing
+            button_center = (button_x, current_button_y)
+
+            # Check if mouse is hovering over this option
+            mouse_distance = ((mouse_pos[0] - button_x) ** 2 + (mouse_pos[1] - current_button_y) ** 2) ** 0.5
+            is_hovered = mouse_distance <= radio_radius + 5
+
+            # Outer circle
+            outer_color = (255, 255, 255) if is_hovered else (200, 200, 200)
+            pygame.draw.circle(self.screen, outer_color, button_center, radio_radius, 2)
+
+            # Inner filled circle if selected
+            if weapon_type == self.selected_weapon_type:
+                pygame.draw.circle(self.screen, (100, 200, 255), button_center, radio_radius - 3)
+
+            # Label
+            label_color = (255, 255, 255) if weapon_type == self.selected_weapon_type else (200, 200, 200)
+            label_surf = self.game.small_font.render(weapon_type.capitalize(), True, label_color)
+            self.screen.blit(label_surf, (button_x + radio_radius + 10, current_button_y - 10))
 
     def _update_inventory_for_tab(self):
         """Update inventory to show only materials for current tab."""
@@ -158,6 +441,8 @@ class CraftingScene(Scene):
             # Clear crafting grid when switching tabs
             self.crafting_grid.clear()
             self.result_slot.set_item(None)
+            # Clear item description when switching tabs
+            self.last_crafted_item = None
 
     def handle_event(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN:
@@ -181,9 +466,26 @@ class CraftingScene(Scene):
 
     def _handle_mouse_down(self, pos: Tuple[int, int]):
         """Handle mouse button down for drag start."""
-        # Check tabs first (they're at the top, centered)
+        # If popup is showing, any click closes it
+        if self.show_description_popup:
+            self.show_description_popup = False
+            return
+
+        # Check info button
+        if self.info_button.contains_point(pos) and self.last_crafted_item:
+            self.show_description_popup = True
+            return
+
+        # Check fight button first
+        if self.fight_button.contains_point(pos):
+            # Go to combat with current equipment
+            self.game.change_scene(CombatScene(self.game, self.equipment_slots))
+            return
+
+        # Check tabs (they're at the top, centered, shifted down)
         tab_names = {"weapon": "[1] Weapons", "armor": "[2] Armor", "concoction": "[3] Concoctions"}
-        tab_y = 60  # Same as in render
+        offset_y = 60
+        tab_y = 60 + offset_y  # Same as in render
         # Calculate centered tab positions
         total_tabs_width = len(self.tabs) * 250 - 10  # 240 width + 10 spacing
         tab_start_x = (self.game.width - total_tabs_width) // 2
@@ -192,7 +494,28 @@ class CraftingScene(Scene):
             if tab_rect.collidepoint(pos):
                 self._switch_tab(tab)
                 return  # Don't process other clicks when switching tabs
-        
+
+        # Check weapon type radio buttons (only for weapon tab)
+        if self.current_tab == "weapon":
+            selector_x = 500
+            selector_y = 280
+            button_y = selector_y + 40
+            button_spacing = 30
+            radio_radius = 8
+
+            for i, weapon_type in enumerate(self.weapon_types):
+                button_x = selector_x + 10
+                current_button_y = button_y + i * button_spacing
+
+                # Check if click is within radio button area (including label)
+                mouse_distance = ((pos[0] - button_x) ** 2 + (pos[1] - current_button_y) ** 2) ** 0.5
+                # Also check label area
+                label_rect = pygame.Rect(button_x - radio_radius - 5, current_button_y - 15, 100, 25)
+
+                if mouse_distance <= radio_radius + 5 or label_rect.collidepoint(pos):
+                    self.selected_weapon_type = weapon_type
+                    return
+
         # Check inventory
         slot_index = self.inventory.get_slot_at_pos(pos)
         if slot_index is not None and self.inventory.slots[slot_index].item:
@@ -305,8 +628,11 @@ class CraftingScene(Scene):
 
         # Determine item type based on current tab
         from game.item import ItemType
+        weapon_subtype = None
         if self.current_tab == "weapon":
             item_type = ItemType.WEAPON
+            # Pass weapon type separately to be integrated into the prompt
+            weapon_subtype = self.selected_weapon_type
         elif self.current_tab == "armor":
             item_type = ItemType.ARMOR
         else:  # concoction
@@ -318,34 +644,42 @@ class CraftingScene(Scene):
             self.generation_message = f"Created: {item.name}! (via {item.generation_method})"
             self.result_slot.set_item(item)
             self.crafting_grid.clear()
+            # Store last crafted item for description display
+            self.last_crafted_item = item
 
-        # Pass explicit item type based on current tab
-        self.ai_client.generate_item_async(materials, item_type, on_complete)
+        # Pass explicit item type and weapon subtype
+        self.ai_client.generate_item_async(materials, item_type, on_complete, weapon_subtype=weapon_subtype)
 
     def update(self, dt: float):
         # Update craft button state - need at least 1 material
         materials = self.crafting_grid.get_materials()
         self.craft_button.enabled = (len(materials) >= 1) and not self.generating
 
-        # Update button hover state
+        # Update button hover states
         mouse_pos = pygame.mouse.get_pos()
         self.craft_button.hovered = self.craft_button.contains_point(mouse_pos)
+        self.fight_button.hovered = self.fight_button.contains_point(mouse_pos)
 
     def render(self):
         mouse_pos = pygame.mouse.get_pos()
 
+        # Draw Fight button at top right
+        self.fight_button.hovered = self.fight_button.contains_point(mouse_pos)
+        self.fight_button.render(self.screen, self.game.font)
+
         # Draw status message at top left
         status_surf = self.game.small_font.render(self.status_message, True, (100, 255, 100))
-        self.screen.blit(status_surf, (50, 10))
+        self.screen.blit(status_surf, (80, 10))
 
-        # Draw title at the very top, centered
+        # Draw title at the very top, centered (shifted down)
+        offset_y = 60
         title = self.game.font.render(f"Crafting: {self.current_tab.capitalize()}", True, (255, 200, 50))
-        title_rect = title.get_rect(center=(self.game.width // 2, 30))
+        title_rect = title.get_rect(center=(self.game.width // 2, 30 + offset_y))
         self.screen.blit(title, title_rect)
 
-        # Draw tabs below title, centered
+        # Draw tabs below title, centered (shifted down)
         tab_names = {"weapon": "[1] Weapons", "armor": "[2] Armor", "concoction": "[3] Concoctions"}
-        tab_y = 60  # Position tabs below title
+        tab_y = 60 + offset_y  # Position tabs below title
         # Calculate centered tab positions
         total_tabs_width = len(self.tabs) * 250 - 10  # 240 width + 10 spacing
         tab_start_x = (self.game.width - total_tabs_width) // 2
@@ -377,15 +711,17 @@ class CraftingScene(Scene):
             text_rect = tab_text.get_rect(center=tab_rect.center)
             self.screen.blit(tab_text, text_rect)
 
-        # Draw instructions below tabs with spacing
+        # Draw instructions below tabs with spacing, centered
         instructions = [
             "Drag materials to grid - AI creates unique items!",
-            f"Press 1/2/3 to switch tabs. ESC for combat"
+            f"Press 1/2/3 to switch tabs. Click Fight or press ESC for combat"
         ]
-        instructions_y = tab_y + 50  # Add spacing below tabs
+        instructions_y = tab_y + 60  # Add spacing below tabs
         for i, inst in enumerate(instructions):
             inst_surf = self.game.small_font.render(inst, True, (200, 200, 200))
-            self.screen.blit(inst_surf, (480, instructions_y + i * 25))
+            # Center the text horizontally
+            inst_rect = inst_surf.get_rect(center=(self.game.width // 2, instructions_y + i * 25))
+            self.screen.blit(inst_surf, inst_rect)
 
         # Calculate crafting grid height: 3 rows * 80px + 2 spacing * 10px = 260px
         grid_height = 3 * 80 + 2 * 10
@@ -400,7 +736,7 @@ class CraftingScene(Scene):
         status_text = f"Materials: {mat_count}"
         status_color = (100, 255, 100) if mat_count >= 1 else (255, 255, 100)
         status_surf = self.game.small_font.render(status_text, True, status_color)
-        self.screen.blit(status_surf, (120, materials_y))
+        self.screen.blit(status_surf, (150, materials_y))
         
         # Position inventory dynamically below materials label
         # Text height is approximately 20px, add 10px spacing
@@ -422,19 +758,197 @@ class CraftingScene(Scene):
             gen_surf = self.game.small_font.render(self.generation_message, True, gen_color)
             # Position at bottom right, below equipment slots
             # Equipment slots height: slot_size (80) + label (~20) = ~100px
-            gen_y = 360  # Below equipment slots with spacing
+            gen_y = 420  # Below equipment slots with spacing
             self.screen.blit(gen_surf, (self.equipment_slots.x - 10, gen_y))
 
         # Draw UI elements
         self.inventory.render(self.screen, mouse_pos)
         self.crafting_grid.render(self.screen, mouse_pos)
         self.craft_button.render(self.screen, self.game.small_font)
-        self.result_slot.render(self.screen, self.game.small_font, mouse_pos)
+
+        # Draw weapon type selector (only for weapon tab)
+        if self.current_tab == "weapon":
+            self._render_weapon_type_selector(mouse_pos)
+
+        # Determine item type hint based on current tab
+        from game.item import ItemType
+        item_type_map = {
+            "weapon": ItemType.WEAPON,
+            "armor": ItemType.ARMOR,
+            "concoction": ItemType.CONCOCTION
+        }
+        item_type_hint = item_type_map.get(self.current_tab)
+        self.result_slot.render(self.screen, self.game.small_font, mouse_pos, item_type_hint=item_type_hint)
         self.equipment_slots.render(self.screen, self.game.small_font, mouse_pos)
+
+        # Draw info button if there's a crafted item
+        if self.last_crafted_item:
+            self.info_button.hovered = self.info_button.contains_point(mouse_pos)
+            self.info_button.render(self.screen)
+
+        # Draw tooltips for items under mouse (only if not dragging)
+        if not self.dragging_item:
+            try:
+                tooltip_item = None
+
+                # Check inventory slots
+                slot_index = self.inventory.get_slot_at_pos(mouse_pos)
+                if slot_index is not None and self.inventory.slots[slot_index].item:
+                    tooltip_item = self.inventory.slots[slot_index].item
+
+                # Check crafting grid
+                if not tooltip_item:
+                    grid_pos = self.crafting_grid.get_slot_at_pos(mouse_pos)
+                    if grid_pos:
+                        row, col = grid_pos
+                        if self.crafting_grid.slots[row][col].item:
+                            tooltip_item = self.crafting_grid.slots[row][col].item
+
+                # Check result slot (access item directly to avoid clearing it)
+                if not tooltip_item and self.result_slot.contains_point(mouse_pos):
+                    tooltip_item = self.result_slot.slot.item
+
+                # Check equipment slots
+                if not tooltip_item:
+                    slot_name = self.equipment_slots.get_slot_at_pos(mouse_pos)
+                    if slot_name:
+                        tooltip_item = self.equipment_slots.get_equipped_item(slot_name)
+
+                # Render tooltip if we found an item
+                if tooltip_item:
+                    tooltip_lines = self._get_item_tooltip_lines(tooltip_item)
+                    render_tooltip(
+                        self.screen,
+                        self.game.font,
+                        self.game.small_font,
+                        tooltip_lines,
+                        mouse_pos[0] + 20,  # Offset from cursor
+                        mouse_pos[1] + 20,
+                        self.game.width,
+                        self.game.height
+                    )
+            except Exception as e:
+                # Silently handle tooltip errors - don't crash the game
+                print(f"Error rendering tooltip: {e}")
 
         # Draw dragging item
         if self.dragging_item:
             self.dragging_item.render(self.screen, mouse_pos[0] - 32, mouse_pos[1] - 32, 64)
+
+        # Draw popup overlay if active (must be last to overlay everything)
+        if self.show_description_popup and self.last_crafted_item:
+            # Semi-transparent overlay
+            overlay = pygame.Surface((self.game.width, self.game.height), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))  # Dark overlay
+            self.screen.blit(overlay, (0, 0))
+
+            # Calculate popup dimensions
+            popup_width = 500
+            popup_padding = 30
+            max_text_width = popup_width - popup_padding * 2
+
+            # Collect all text lines for height calculation
+            all_lines = []
+
+            # Title
+            all_lines.append(("title", self.last_crafted_item.name))
+
+            # Effect Description
+            if self.last_crafted_item.stats.special_effect:
+                all_lines.append(("label", "Effect Description:"))
+                # Wrap effect text
+                effect_text = self.last_crafted_item.stats.special_effect
+                words = effect_text.split()
+                current_line = []
+                for word in words:
+                    test_line = ' '.join(current_line + [word])
+                    test_surf = self.game.small_font.render(test_line, True, (255, 255, 255))
+                    if test_surf.get_width() <= max_text_width:
+                        current_line.append(word)
+                    else:
+                        if current_line:
+                            all_lines.append(("effect_text", ' '.join(current_line)))
+                        current_line = [word]
+                if current_line:
+                    all_lines.append(("effect_text", ' '.join(current_line)))
+
+            # Item Description
+            if self.last_crafted_item.description:
+                all_lines.append(("spacing", ""))
+                all_lines.append(("label", "Description:"))
+                # Wrap description text
+                desc_text = self.last_crafted_item.description
+                words = desc_text.split()
+                current_line = []
+                for word in words:
+                    test_line = ' '.join(current_line + [word])
+                    test_surf = self.game.small_font.render(test_line, True, (255, 255, 255))
+                    if test_surf.get_width() <= max_text_width:
+                        current_line.append(word)
+                    else:
+                        if current_line:
+                            all_lines.append(("desc_text", ' '.join(current_line)))
+                        current_line = [word]
+                if current_line:
+                    all_lines.append(("desc_text", ' '.join(current_line)))
+
+            # Calculate total height
+            line_height = 25
+            title_height = 40
+            popup_height = popup_padding * 2 + title_height
+            for line_type, _ in all_lines[1:]:  # Skip title in count
+                if line_type == "spacing":
+                    popup_height += 15
+                else:
+                    popup_height += line_height
+
+            # Center the popup
+            popup_x = (self.game.width - popup_width) // 2
+            popup_y = (self.game.height - popup_height) // 2
+
+            # Draw popup background
+            popup_rect = pygame.Rect(popup_x, popup_y, popup_width, popup_height)
+            pygame.draw.rect(self.screen, (40, 40, 50), popup_rect)
+            pygame.draw.rect(self.screen, (100, 150, 255), popup_rect, 3)
+
+            # Draw content
+            current_y = popup_y + popup_padding
+
+            for line_type, text in all_lines:
+                if line_type == "title":
+                    # Get rarity color
+                    try:
+                        if hasattr(self.last_crafted_item.rarity, '_name'):
+                            rarity_str = self.last_crafted_item.rarity._name.lower()
+                        else:
+                            rarity_str = str(self.last_crafted_item.rarity).lower()
+                    except:
+                        rarity_str = "common"
+                    rarity_color = RARITY_COLORS.get(rarity_str, (200, 200, 200))
+
+                    title_surf = self.game.font.render(text, True, rarity_color)
+                    title_rect = title_surf.get_rect(center=(popup_x + popup_width // 2, current_y + 15))
+                    self.screen.blit(title_surf, title_rect)
+                    current_y += title_height
+                elif line_type == "label":
+                    if "Effect" in text:
+                        color = (150, 255, 150)
+                    else:
+                        color = (255, 200, 100)
+                    label_surf = self.game.small_font.render(text, True, color)
+                    self.screen.blit(label_surf, (popup_x + popup_padding, current_y))
+                    current_y += line_height
+                elif line_type == "spacing":
+                    current_y += 15
+                else:
+                    text_surf = self.game.small_font.render(text, True, (220, 220, 220))
+                    self.screen.blit(text_surf, (popup_x + popup_padding + 15, current_y))
+                    current_y += line_height
+
+            # Draw "Click anywhere to close" hint
+            hint_surf = self.game.small_font.render("Click anywhere to close", True, (150, 150, 150))
+            hint_rect = hint_surf.get_rect(center=(popup_x + popup_width // 2, popup_y + popup_height - 15))
+            self.screen.blit(hint_surf, hint_rect)
 
 
 class CombatScene(Scene):
@@ -443,9 +957,12 @@ class CombatScene(Scene):
     def __init__(self, game, equipment_slots: EquipmentSlots):
         super().__init__(game)
 
+        # Store equipment for restart functionality
+        self.equipment_slots = equipment_slots
+
         # Create fighters
         self.player = Fighter("Player", max_health=100, is_player=True)
-        self.enemy = Fighter("Enemy", max_health=100, is_player=False)
+        self.enemy = Fighter("Enemy", max_health=800, is_player=False)  # Strong enemy for longer battles
 
         # Equip player items
         self.player.equip_items(
@@ -454,9 +971,9 @@ class CombatScene(Scene):
             equipment_slots.get_equipped_item("concoction")
         )
 
-        # Equip enemy with basic items (for testing)
-        self.enemy.base_damage = 15
-        self.enemy.base_armor = 10
+        # Equip enemy with strong stats (for testing)
+        self.enemy.base_damage = 25
+        self.enemy.base_armor = 20
 
         # Initialize combat
         self.combat = CombatSystem(self.player, self.enemy)
@@ -466,14 +983,39 @@ class CombatScene(Scene):
         self.auto_combat_timer = 0
         self.auto_combat_delay = 1.0  # Seconds between turns
 
+    def restart_battle(self):
+        """Restart the battle with the same equipment."""
+        # Create new fighters
+        self.player = Fighter("Player", max_health=100, is_player=True)
+        self.enemy = Fighter("Enemy", max_health=800, is_player=False)
+
+        # Re-equip player items
+        self.player.equip_items(
+            self.equipment_slots.get_equipped_item("weapon"),
+            self.equipment_slots.get_equipped_item("armor"),
+            self.equipment_slots.get_equipped_item("concoction")
+        )
+
+        # Re-equip enemy stats
+        self.enemy.base_damage = 25
+        self.enemy.base_armor = 20
+
+        # Reset combat system
+        self.combat = CombatSystem(self.player, self.enemy)
+        self.auto_combat = False
+        self.auto_combat_timer = 0
+
     def handle_event(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE and not self.combat.combat_over:
                 # Execute next turn
                 self.combat.execute_turn()
-            elif event.key == pygame.K_a:
+            elif event.key == pygame.K_a and not self.combat.combat_over:
                 # Toggle auto combat
                 self.auto_combat = not self.auto_combat
+            elif event.key == pygame.K_r and self.combat.combat_over:
+                # Restart battle with same equipment
+                self.restart_battle()
             elif event.key == pygame.K_ESCAPE:
                 # Return to crafting
                 self.game.change_scene(CraftingScene(self.game))
@@ -482,7 +1024,10 @@ class CombatScene(Scene):
         # Update sprite animations
         self.player.update_sprite(dt)
         self.enemy.update_sprite(dt)
-        
+
+        # Update particle effects
+        self.combat.update_effects(dt)
+
         if self.auto_combat and not self.combat.combat_over:
             self.auto_combat_timer += dt
             if self.auto_combat_timer >= self.auto_combat_delay:
@@ -490,9 +1035,12 @@ class CombatScene(Scene):
                 self.auto_combat_timer = 0
 
     def render(self):
-        # Draw background pattern (subtle)
+        # Draw background pattern (subtle lines over gradient)
+        # Lines are slightly darker than gradient for subtle texture
         for y in range(0, self.game.height, 40):
-            pygame.draw.line(self.screen, (50, 50, 50), (0, y), (self.game.width, y), 1)
+            # Use darker color that works with gradient
+            line_color = (35, 35, 35)
+            pygame.draw.line(self.screen, line_color, (0, y), (self.game.width, y), 1)
         
         # Draw title
         title = self.game.font.render("COMBAT!", True, (255, 100, 100))
@@ -511,6 +1059,9 @@ class CombatScene(Scene):
         # Draw fighters (centered in their columns)
         self.renderer.render_fighter(self.screen, self.player, player_column_center, 80, True)
         self.renderer.render_fighter(self.screen, self.enemy, enemy_column_center, 80, False)
+
+        # Draw particle effects (on top of fighters, below UI)
+        self.renderer.render_effects(self.screen, self.combat.effect_animator)
 
         # Draw turn indicator (centered, above combat log)
         if not self.combat.combat_over:
@@ -536,6 +1087,7 @@ class CombatScene(Scene):
             result = "Victory!" if self.combat.player_won else "Defeat!"
             controls = [
                 f"Result: {result}",
+                "R - Restart Battle",
                 "ESC - Return to Crafting"
             ]
 
