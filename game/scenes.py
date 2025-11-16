@@ -21,7 +21,8 @@ class MainMenuScene(Scene):
         self.selected = 0
         self.pressed_option = None  # Track which option is being pressed
         self.press_timer = 0.0  # Timer for press animation
-
+        self.logo = pygame.image.load("assets/logo/logo.png").convert_alpha()
+        self.logo = pygame.transform.scale(self.logo, (450, 280))
     def handle_event(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP:
@@ -87,22 +88,22 @@ class MainMenuScene(Scene):
 
     def render(self):
         # Draw title
-        title = self.title_font.render("FIGHTCRAFT", True, (255, 200, 50))
-        title_rect = title.get_rect(center=(self.game.width // 2, 150))
-        self.screen.blit(title, title_rect)
+        logo_rect = self.logo.get_rect(center=(self.game.width // 2, 170))
+        self.screen.blit(self.logo, logo_rect)
+
 
         # Draw subtitle
         subtitle = self.game.small_font.render(
             "AI-Powered Crafting & Combat", True, (200, 200, 200)
         )
-        subtitle_rect = subtitle.get_rect(center=(self.game.width // 2, 220))
+        subtitle_rect = subtitle.get_rect(center=(self.game.width // 2, 290))
         self.screen.blit(subtitle, subtitle_rect)
 
         # Draw menu options with interactive states
         mouse_pos = pygame.mouse.get_pos()
         for i, option in enumerate(self.options):
             text = self.menu_font.render(option, True, (200, 200, 200))
-            text_rect = text.get_rect(center=(self.game.width // 2, 350 + i * 60))
+            text_rect = text.get_rect(center=(self.game.width // 2, 380 + i * 60))
             hover_rect = text_rect.inflate(20, 10)
             is_hovered = hover_rect.collidepoint(mouse_pos) and self.pressed_option is None
             is_pressed = (self.pressed_option == i) and self.press_timer > 0
