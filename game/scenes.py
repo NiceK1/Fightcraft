@@ -9,6 +9,35 @@ from game.combat import Fighter, CombatSystem, CombatRenderer
 from game.ai_client import AIClient
 
 
+class InfoButton:
+    """Small info button that shows a popup when clicked."""
+
+    def __init__(self, x: int, y: int, size: int = 24):
+        self.x = x
+        self.y = y
+        self.size = size
+        self.rect = pygame.Rect(x, y, size, size)
+        self.hovered = False
+
+    def contains_point(self, pos: Tuple[int, int]) -> bool:
+        """Check if position is within button."""
+        return self.rect.collidepoint(pos)
+
+    def render(self, surface: pygame.Surface):
+        """Render the info button with an 'i' icon."""
+        # Draw circle background
+        center = (self.x + self.size // 2, self.y + self.size // 2)
+        color = (100, 150, 255) if self.hovered else (70, 120, 200)
+        pygame.draw.circle(surface, color, center, self.size // 2)
+        pygame.draw.circle(surface, (255, 255, 255), center, self.size // 2, 2)
+
+        # Draw 'i' icon
+        font = pygame.font.Font(None, int(self.size * 1.2))
+        text = font.render("i", True, (255, 255, 255))
+        text_rect = text.get_rect(center=center)
+        surface.blit(text, text_rect)
+
+
 # Rarity colors (standard RPG colors)
 RARITY_COLORS = {
     "common": (180, 180, 180),  # Gray
@@ -308,7 +337,11 @@ class CraftingScene(Scene):
 
         # Item description display (shown after crafting)
         self.last_crafted_item: Optional[Item] = None
-        self.show_item_description = False
+
+        # Info button for showing description popup
+        # Position it next to the result slot
+        self.info_button = InfoButton(self.result_slot.slot.x + 110, self.result_slot.slot.y)
+        self.show_description_popup = False
 
         # Check backend
         backend_available = self.ai_client.check_backend_health()
@@ -395,7 +428,6 @@ class CraftingScene(Scene):
             self.crafting_grid.clear()
             self.result_slot.set_item(None)
             # Clear item description when switching tabs
-            self.show_item_description = False
             self.last_crafted_item = None
 
     def handle_event(self, event: pygame.event.Event):
@@ -420,12 +452,22 @@ class CraftingScene(Scene):
 
     def _handle_mouse_down(self, pos: Tuple[int, int]):
         """Handle mouse button down for drag start."""
+        # If popup is showing, any click closes it
+        if self.show_description_popup:
+            self.show_description_popup = False
+            return
+
+        # Check info button
+        if self.info_button.contains_point(pos) and self.last_crafted_item:
+            self.show_description_popup = True
+            return
+
         # Check fight button first
         if self.fight_button.contains_point(pos):
             # Go to combat with current equipment
             self.game.change_scene(CombatScene(self.game, self.equipment_slots))
             return
-        
+
         # Check tabs (they're at the top, centered, shifted down)
         tab_names = {"weapon": "[1] Weapons", "armor": "[2] Armor", "concoction": "[3] Concoctions"}
         offset_y = 60
@@ -465,8 +507,6 @@ class CraftingScene(Scene):
             if item:
                 self.dragging_item = item
                 self.drag_source = "result"
-                # Hide item description when dragging from result slot
-                self.show_item_description = False
             return
 
         # Check equipment slots
@@ -568,7 +608,6 @@ class CraftingScene(Scene):
             self.crafting_grid.clear()
             # Store last crafted item for description display
             self.last_crafted_item = item
-            self.show_item_description = True
 
         # Pass explicit item type based on current tab
         self.ai_client.generate_item_async(materials, item_type, on_complete)
@@ -700,72 +739,10 @@ class CraftingScene(Scene):
         self.result_slot.render(self.screen, self.game.small_font, mouse_pos, item_type_hint=item_type_hint)
         self.equipment_slots.render(self.screen, self.game.small_font, mouse_pos)
 
-        # Draw item descriptions below equipment slots (if item was just crafted)
-        if self.show_item_description and self.last_crafted_item:
-            desc_x = self.equipment_slots.x
-            desc_y = self.equipment_slots.y + 120  # Below equipment slots
-
-            # Effect Description (from stats.special_effect)
-            if self.last_crafted_item.stats.special_effect:
-                effect_label = self.game.small_font.render("Effect Description:", True, (150, 255, 150))
-                self.screen.blit(effect_label, (desc_x, desc_y))
-
-                # Wrap text if needed
-                effect_text = self.last_crafted_item.stats.special_effect
-                max_width = 350  # Maximum width for description text
-                words = effect_text.split()
-                lines = []
-                current_line = []
-
-                for word in words:
-                    test_line = ' '.join(current_line + [word])
-                    test_surf = self.game.small_font.render(test_line, True, (200, 200, 200))
-                    if test_surf.get_width() <= max_width:
-                        current_line.append(word)
-                    else:
-                        if current_line:
-                            lines.append(' '.join(current_line))
-                        current_line = [word]
-
-                if current_line:
-                    lines.append(' '.join(current_line))
-
-                # Draw wrapped lines
-                for i, line in enumerate(lines):
-                    line_surf = self.game.small_font.render(line, True, (200, 200, 200))
-                    self.screen.blit(line_surf, (desc_x + 10, desc_y + 25 + i * 20))
-
-                desc_y += 25 + len(lines) * 20 + 10  # Move down for next section
-
-            # Item Description
-            if self.last_crafted_item.description:
-                desc_label = self.game.small_font.render("Description:", True, (255, 200, 100))
-                self.screen.blit(desc_label, (desc_x, desc_y))
-
-                # Wrap text if needed
-                desc_text = self.last_crafted_item.description
-                max_width = 350
-                words = desc_text.split()
-                lines = []
-                current_line = []
-
-                for word in words:
-                    test_line = ' '.join(current_line + [word])
-                    test_surf = self.game.small_font.render(test_line, True, (200, 200, 200))
-                    if test_surf.get_width() <= max_width:
-                        current_line.append(word)
-                    else:
-                        if current_line:
-                            lines.append(' '.join(current_line))
-                        current_line = [word]
-
-                if current_line:
-                    lines.append(' '.join(current_line))
-
-                # Draw wrapped lines
-                for i, line in enumerate(lines):
-                    line_surf = self.game.small_font.render(line, True, (200, 200, 200))
-                    self.screen.blit(line_surf, (desc_x + 10, desc_y + 25 + i * 20))
+        # Draw info button if there's a crafted item
+        if self.last_crafted_item:
+            self.info_button.hovered = self.info_button.contains_point(mouse_pos)
+            self.info_button.render(self.screen)
 
         # Draw tooltips for items under mouse (only if not dragging)
         if not self.dragging_item:
@@ -815,6 +792,121 @@ class CraftingScene(Scene):
         # Draw dragging item
         if self.dragging_item:
             self.dragging_item.render(self.screen, mouse_pos[0] - 32, mouse_pos[1] - 32, 64)
+
+        # Draw popup overlay if active (must be last to overlay everything)
+        if self.show_description_popup and self.last_crafted_item:
+            # Semi-transparent overlay
+            overlay = pygame.Surface((self.game.width, self.game.height), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))  # Dark overlay
+            self.screen.blit(overlay, (0, 0))
+
+            # Calculate popup dimensions
+            popup_width = 500
+            popup_padding = 30
+            max_text_width = popup_width - popup_padding * 2
+
+            # Collect all text lines for height calculation
+            all_lines = []
+
+            # Title
+            all_lines.append(("title", self.last_crafted_item.name))
+
+            # Effect Description
+            if self.last_crafted_item.stats.special_effect:
+                all_lines.append(("label", "Effect Description:"))
+                # Wrap effect text
+                effect_text = self.last_crafted_item.stats.special_effect
+                words = effect_text.split()
+                current_line = []
+                for word in words:
+                    test_line = ' '.join(current_line + [word])
+                    test_surf = self.game.small_font.render(test_line, True, (255, 255, 255))
+                    if test_surf.get_width() <= max_text_width:
+                        current_line.append(word)
+                    else:
+                        if current_line:
+                            all_lines.append(("effect_text", ' '.join(current_line)))
+                        current_line = [word]
+                if current_line:
+                    all_lines.append(("effect_text", ' '.join(current_line)))
+
+            # Item Description
+            if self.last_crafted_item.description:
+                all_lines.append(("spacing", ""))
+                all_lines.append(("label", "Description:"))
+                # Wrap description text
+                desc_text = self.last_crafted_item.description
+                words = desc_text.split()
+                current_line = []
+                for word in words:
+                    test_line = ' '.join(current_line + [word])
+                    test_surf = self.game.small_font.render(test_line, True, (255, 255, 255))
+                    if test_surf.get_width() <= max_text_width:
+                        current_line.append(word)
+                    else:
+                        if current_line:
+                            all_lines.append(("desc_text", ' '.join(current_line)))
+                        current_line = [word]
+                if current_line:
+                    all_lines.append(("desc_text", ' '.join(current_line)))
+
+            # Calculate total height
+            line_height = 25
+            title_height = 40
+            popup_height = popup_padding * 2 + title_height
+            for line_type, _ in all_lines[1:]:  # Skip title in count
+                if line_type == "spacing":
+                    popup_height += 15
+                else:
+                    popup_height += line_height
+
+            # Center the popup
+            popup_x = (self.game.width - popup_width) // 2
+            popup_y = (self.game.height - popup_height) // 2
+
+            # Draw popup background
+            popup_rect = pygame.Rect(popup_x, popup_y, popup_width, popup_height)
+            pygame.draw.rect(self.screen, (40, 40, 50), popup_rect)
+            pygame.draw.rect(self.screen, (100, 150, 255), popup_rect, 3)
+
+            # Draw content
+            current_y = popup_y + popup_padding
+
+            for line_type, text in all_lines:
+                if line_type == "title":
+                    # Get rarity color
+                    try:
+                        if hasattr(self.last_crafted_item.rarity, '_name'):
+                            rarity_str = self.last_crafted_item.rarity._name.lower()
+                        else:
+                            rarity_str = str(self.last_crafted_item.rarity).lower()
+                    except:
+                        rarity_str = "common"
+                    rarity_color = RARITY_COLORS.get(rarity_str, (200, 200, 200))
+
+                    title_surf = self.game.font.render(text, True, rarity_color)
+                    title_rect = title_surf.get_rect(center=(popup_x + popup_width // 2, current_y + 15))
+                    self.screen.blit(title_surf, title_rect)
+                    current_y += title_height
+                elif line_type == "label":
+                    if "Effect" in text:
+                        color = (150, 255, 150)
+                    else:
+                        color = (255, 200, 100)
+                    label_surf = self.game.small_font.render(text, True, color)
+                    self.screen.blit(label_surf, (popup_x + popup_padding, current_y))
+                    current_y += line_height
+                elif line_type == "spacing":
+                    current_y += 15
+                else:
+                    text_surf = self.game.small_font.render(text, True, (220, 220, 220))
+                    self.screen.blit(text_surf, (popup_x + popup_padding + 15, current_y))
+                    current_y += line_height
+
+            # Draw "Click anywhere to close" hint
+            hint_surf = self.game.small_font.render("Click anywhere to close", True, (150, 150, 150))
+            hint_rect = hint_surf.get_rect(center=(popup_x + popup_width // 2, popup_y + popup_height - 15))
+            self.screen.blit(hint_surf, hint_rect)
 
 
 class CombatScene(Scene):
