@@ -110,6 +110,8 @@ class MainMenuScene(Scene):
 
     def __init__(self, game):
         super().__init__(game)
+        self.logo = pygame.image.load("assets/logo/logo.png").convert_alpha()
+        self.logo = pygame.transform.scale(self.logo, (450, 280))
         self.title_font = pygame.font.Font(None, 72)
         self.menu_font = pygame.font.Font(None, 48)
 
