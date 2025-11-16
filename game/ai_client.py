@@ -19,13 +19,14 @@ class AIClient:
         materials: List[str],
         item_type: Optional[ItemType],
         callback: Callable[[Item], None],
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        weapon_subtype: Optional[str] = None
     ):
         """Generate item with AI (sprites and stats) asynchronously."""
 
         def generate():
             try:
-                item = self.generate_item(materials, item_type, seed)
+                item = self.generate_item(materials, item_type, seed, weapon_subtype)
                 callback(item)
             except Exception as e:
                 print(f"Error generating item: {e}")
@@ -40,19 +41,20 @@ class AIClient:
         self,
         materials: List[str],
         item_type: Optional[ItemType],
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        weapon_subtype: Optional[str] = None
     ) -> Item:
         """Generate item with AI (sprites and stats) synchronously."""
         try:
             # Request stats generation first (backend will determine item type)
-            stats_data = self._request_stats(materials, item_type)
+            stats_data = self._request_stats(materials, item_type, weapon_subtype)
 
             # Get item type from stats response (backend decides)
             determined_type_str = stats_data.get("item_type", "weapon")
             determined_type = self._parse_item_type(determined_type_str)
 
             # Request sprite generation with determined type
-            sprite = self._request_sprite(materials, determined_type, seed)
+            sprite = self._request_sprite(materials, determined_type, seed, weapon_subtype)
 
             # Create item from AI-generated data
             item = Item(
@@ -85,7 +87,8 @@ class AIClient:
         self,
         materials: List[str],
         item_type: ItemType,
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        weapon_subtype: Optional[str] = None
     ) -> pygame.Surface:
         """Request sprite generation from backend."""
         try:
@@ -94,7 +97,8 @@ class AIClient:
                 json={
                     "materials": materials,
                     "item_type": item_type.value,
-                    "seed": seed
+                    "seed": seed,
+                    "weapon_subtype": weapon_subtype
                 },
                 timeout=30
             )
@@ -113,7 +117,8 @@ class AIClient:
     def _request_stats(
         self,
         materials: List[str],
-        item_type: Optional[ItemType]
+        item_type: Optional[ItemType],
+        weapon_subtype: Optional[str] = None
     ) -> dict:
         """Request stats generation from backend."""
         try:
@@ -121,7 +126,8 @@ class AIClient:
                 f"{self.backend_url}/generate_stats",
                 json={
                     "materials": materials,
-                    "item_type": item_type.value if item_type else None
+                    "item_type": item_type.value if item_type else None,
+                    "weapon_subtype": weapon_subtype
                 },
                 timeout=10
             )

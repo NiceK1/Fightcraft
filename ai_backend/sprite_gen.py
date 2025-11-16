@@ -75,42 +75,44 @@ class SpriteGenerator:
         self,
         materials: List[str],
         item_type: str,
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        weapon_subtype: Optional[str] = None
     ) -> bytes:
         """Generate sprite image and return as PNG bytes."""
 
         if self.use_ai and self.client:
             try:
                 if self.ai_provider == "replicate":
-                    img = self._generate_with_replicate(materials, item_type, seed)
+                    img = self._generate_with_replicate(materials, item_type, seed, weapon_subtype)
                     img = self.remove_bg_photoroom(img)
                     return img
 
                 elif self.ai_provider == "openai":
-                    img = self._generate_with_openai(materials, item_type, seed)
+                    img = self._generate_with_openai(materials, item_type, seed, weapon_subtype)
                     img = self.remove_bg_photoroom(img)
                     return img
 
                 elif self.ai_provider == "comfyui":
-                    img = self._generate_with_comfy(materials, item_type, seed)
+                    img = self._generate_with_comfy(materials, item_type, seed, weapon_subtype)
                     img = self.remove_bg_photoroom(img)
                     return img
             except Exception as e:
                 print(f"AI sprite generation failed: {e}, using fallback")
 
         # Fallback to procedural generation
-        return self._generate_fallback(materials, item_type, seed)
+        return self._generate_fallback(materials, item_type, seed, weapon_subtype)
 
     def _generate_with_replicate(
         self,
         materials: List[str],
         item_type: str,
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        weapon_subtype: Optional[str] = None
     ) -> bytes:
         """Generate sprite using Replicate SDXL."""
 
         # Create prompt from materials
-        prompt = self._create_prompt(materials, item_type)
+        prompt = self._create_prompt(materials, item_type, weapon_subtype)
 
         # Use SDXL-Turbo for fast generation
         output = self.client.run(
@@ -169,12 +171,13 @@ class SpriteGenerator:
         self,
         materials: List[str],
         item_type: str,
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        weapon_subtype: Optional[str] = None
     ) -> bytes:
         """Generate sprite using OpenAI DALL-E."""
 
         # Create prompt from materials
-        prompt = self._create_prompt(materials, item_type)
+        prompt = self._create_prompt(materials, item_type, weapon_subtype)
 
         # Add more specific instructions for DALL-E to get game-like sprites
         prompt = f"pixel art game sprite, {prompt}, isolated on white background, top-down view, simple design, video game asset"
@@ -205,12 +208,13 @@ class SpriteGenerator:
         self,
         materials: List[str],
         item_type: str,
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        weapon_subtype: Optional[str] = None
     ) -> bytes:
         """Generate sprite using ComfyUI with SDXL-Turbo."""
 
         # Create prompt from materials
-        prompt = self._create_prompt(materials, item_type)
+        prompt = self._create_prompt(materials, item_type, weapon_subtype)
 
         # This is a simplified example. In production, you would:
         # 1. Load a ComfyUI workflow JSON
@@ -293,13 +297,19 @@ class SpriteGenerator:
         # For now, raise an exception to use fallback
         raise NotImplementedError("ComfyUI workflow needs to be configured")
 
-    def _create_prompt(self, materials: List[str], item_type: str) -> str:
+    def _create_prompt(self, materials: List[str], item_type: str, weapon_subtype: Optional[str] = None) -> str:
         """Create AI prompt from materials and item type."""
         materials_str = ", ".join(materials).lower()
+        
+        # Use weapon subtype if provided, otherwise use generic "weapon"
+        weapon_name = weapon_subtype if weapon_subtype and item_type == "weapon" else item_type
 
         prompts = {
-            "weapon": f"pixel art game sprite, RPG {item_type}, fantasy 2-handed weapon made from {materials_str}, "
-                     f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines",
+            "weapon": (
+                f"pixel art game sprite, RPG {weapon_subtype if weapon_subtype else '2-handed weapon'}, "
+                f"fantasy {weapon_subtype if weapon_subtype else 'weapon'} made from {materials_str}, "
+                f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines"
+            ),
             "armor": f"pixel art game sprite, RPG {item_type}, fantasy armor chestpiece made from {materials_str}, "
                     f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines",
             "concoction": f"pixel art game sprite, fantasy RPG health restore bottle made from {materials_str}, "
@@ -313,7 +323,8 @@ class SpriteGenerator:
         self,
         materials: List[str],
         item_type: str,
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        weapon_subtype: Optional[str] = None
     ) -> bytes:
         """Generate procedural sprite as fallback."""
 
@@ -328,9 +339,9 @@ class SpriteGenerator:
         # Generate colors from materials
         colors = self._get_material_colors(materials)
 
-        # Draw based on item type
+        # Draw based on item type and weapon subtype
         if item_type == "weapon":
-            self._draw_weapon(draw, size, colors)
+            self._draw_weapon(draw, size, colors, weapon_subtype)
         elif item_type == "armor":
             self._draw_armor(draw, size, colors)
         elif item_type == "concoction":
@@ -346,7 +357,9 @@ class SpriteGenerator:
     def _get_material_colors(self, materials: List[str]) -> List[tuple]:
         """Get colors based on material names."""
         color_map = {
+            # Traditional materials
             "iron": (150, 150, 150),
+            "steel": (180, 180, 190),
             "wood": (139, 90, 43),
             "oak": (139, 90, 43),
             "dragon": (200, 50, 50),
@@ -360,6 +373,58 @@ class SpriteGenerator:
             "leather": (160, 120, 70),
             "magic": (200, 100, 255),
             "essence": (220, 150, 255),
+            "obsidian": (50, 50, 60),
+            "mithril": (180, 220, 255),
+            "titanium": (200, 200, 210),
+            "plate": (170, 170, 175),
+            "reinforced": (120, 80, 40),
+            "shield": (100, 100, 110),
+            
+            # Wacky weapon materials
+            "rubber": (255, 255, 0),
+            "chicken": (255, 255, 0),
+            "frozen": (100, 150, 255),
+            "fish": (100, 150, 255),
+            "lightning": (255, 255, 100),
+            "bolt": (255, 255, 100),
+            "angry": (255, 200, 50),
+            "bee": (255, 200, 50),
+            "disco": (255, 150, 255),
+            "ball": (255, 150, 255),
+            "banana": (255, 255, 80),
+            "blade": (255, 255, 80),
+            "laser": (255, 50, 50),
+            "pointer": (255, 50, 50),
+            "flying": (255, 200, 150),
+            "spaghetti": (255, 200, 150),
+            
+            # Wacky armor materials
+            "bubble": (200, 200, 255),
+            "wrap": (200, 200, 255),
+            "pillow": (255, 200, 200),
+            "fort": (255, 200, 200),
+            "marshmallow": (255, 255, 255),
+            "pool": (0, 255, 200),
+            "noodle": (0, 255, 200),
+            "tinfoil": (150, 150, 150),
+            "hat": (150, 150, 150),
+            "yoga": (100, 255, 100),
+            "mat": (100, 255, 100),
+            "pizza": (255, 150, 100),
+            "box": (255, 150, 100),
+            "cardboard": (200, 150, 100),
+            "suit": (200, 150, 100),
+            "duck": (255, 255, 50),
+            "plush": (255, 100, 150),
+            "armor": (255, 100, 150),
+            
+            # Concoction materials
+            "phoenix": (255, 180, 80),
+            "feather": (255, 180, 80),
+            "moonflower": (220, 220, 255),
+            "star": (255, 255, 200),
+            "dust": (255, 255, 200),
+            "powder": (150, 220, 255),
         }
 
         colors = []
@@ -379,92 +444,75 @@ class SpriteGenerator:
 
         return colors if colors else [(150, 150, 150)]
 
-    def _draw_weapon(self, draw: ImageDraw.Draw, size: int, colors: List[tuple]):
-        """Draw a stylized weapon."""
+    def _draw_weapon(self, draw: ImageDraw.Draw, size: int, colors: List[tuple], weapon_subtype: Optional[str] = None):
+        """Draw a stylized weapon based on subtype."""
         center = size // 2
+        
+        if weapon_subtype == "axe":
+            # Draw axe blade (wider, curved)
+            blade_points = [
+                (center - 20, center - 15),
+                (center + 20, center - 15),
+                (center + 25, center + 5),
+                (center - 25, center + 5)
+            ]
+            draw.polygon(blade_points, fill=colors[0])
+            draw.line(blade_points + [blade_points[0]], fill=(0, 0, 0), width=2)
+            
+            # Draw axe handle (longer, vertical)
+            handle_color = colors[1] if len(colors) > 1 else colors[0]
+            draw.rectangle([center - 4, center + 5, center + 4, center + 40], fill=handle_color, outline=(0, 0, 0), width=2)
+            
+        elif weapon_subtype == "spear":
+            # Draw spear tip (narrow triangle)
+            blade_points = [
+                (center, center - 45),
+                (center + 6, center - 10),
+                (center - 6, center - 10)
+            ]
+            draw.polygon(blade_points, fill=colors[0])
+            draw.line(blade_points + [blade_points[0]], fill=(0, 0, 0), width=2)
+            
+            # Draw spear shaft (very long, thin)
+            handle_color = colors[1] if len(colors) > 1 else colors[0]
+            draw.rectangle([center - 3, center - 10, center + 3, center + 45], fill=handle_color, outline=(0, 0, 0), width=2)
+            
+        else:  # Default to sword
+            # Draw blade (main part)
+            blade_points = [
+                (center, center - 40),
+                (center + 8, center + 10),
+                (center - 8, center + 10)
+            ]
+            draw.polygon(blade_points, fill=colors[0])
+            draw.line(blade_points + [blade_points[0]], fill=(0, 0, 0), width=2)
 
-        # Draw blade (main part)
-        blade_points = [
-            (center, center - 40),
-            (center + 8, center + 10),
-            (center - 8, center + 10)
-        ]
-        draw.polygon(blade_points, fill=colors[0])
-        draw.line(blade_points + [blade_points[0]], fill=(0, 0, 0), width=2)
+            # Draw handle
+            handle_color = colors[1] if len(colors) > 1 else colors[0]
+            draw.rectangle([center - 5, center + 10, center + 5, center + 35], fill=handle_color, outline=(0, 0, 0), width=2)
 
-        # Draw handle
-        handle_color = colors[1] if len(colors) > 1 else colors[0]
-        draw.rectangle([center - 5, center + 10, center + 5, center + 35], fill=handle_color, outline=(0, 0, 0), width=2)
-
-        # Draw guard
-        guard_color = colors[2] if len(colors) > 2 else colors[0]
-        draw.rectangle([center - 15, center + 8, center + 15, center + 14], fill=guard_color, outline=(0, 0, 0), width=2)
+            # Draw guard
+            guard_color = colors[2] if len(colors) > 2 else colors[0]
+            draw.rectangle([center - 15, center + 8, center + 15, center + 14], fill=guard_color, outline=(0, 0, 0), width=2)
 
     def _draw_armor(self, draw: ImageDraw.Draw, size: int, colors: List[tuple]):
-        """Draw a stylized armor piece with cuirass-like shape covering shoulders."""
+        """Draw a stylized armor piece."""
         center = size // 2
 
-        # Draw main body (cuirass/breastplate shape) with layered design
-        # Top is flat and covers shoulders
-        top_y = center - 22  # Higher up to cover more area
-        body_width = 50  # Narrower at top (reduced from 56)
-        shoulder_width = 28  # Width at shoulder level (slightly narrower)
-        
-        # Main cuirass body - wider at top, tapering to bottom
+        # Draw main body (chestplate shape)
         body_points = [
-            (center - body_width // 2, top_y),           # Left top (flat)
-            (center + body_width // 2, top_y),           # Right top (flat)
-            (center + shoulder_width, center - 3),        # Right shoulder
-            (center + 22, center + 25),                  # Right mid
-            (center + 18, center + 32),                  # Right bottom
-            (center - 18, center + 32),                  # Left bottom
-            (center - 22, center + 25),                  # Left mid
-            (center - shoulder_width, center - 3)        # Left shoulder
+            (center, center - 30),
+            (center + 25, center - 10),
+            (center + 20, center + 30),
+            (center - 20, center + 30),
+            (center - 25, center - 10)
         ]
-        
-        # Draw main armor body
         draw.polygon(body_points, fill=colors[0])
         draw.line(body_points + [body_points[0]], fill=(0, 0, 0), width=2)
-        
-        # Ensure top is completely flat
-        draw.line([(center - body_width // 2, top_y), (center + body_width // 2, top_y)], 
-                 fill=colors[0], width=3)
-        draw.line([(center - body_width // 2, top_y), (center + body_width // 2, top_y)], 
-                 fill=(0, 0, 0), width=1)
-        
-        # Add layered shoulder pauldrons (multi-plate design)
-        pauldron_height = 12
-        pauldron_width = 8
-        pauldron_offset = 4
-        
-        # Left shoulder pauldron - layered plates
-        for i in range(3):
-            plate_y = top_y + i * pauldron_offset
-            plate_width = pauldron_width - i * 1
-            draw.ellipse([center - body_width // 2 - plate_width, plate_y, 
-                         center - body_width // 2, plate_y + pauldron_height - i * 2], 
-                        fill=colors[0], outline=(0, 0, 0), width=1)
-        
-        # Right shoulder pauldron - layered plates
-        for i in range(3):
-            plate_y = top_y + i * pauldron_offset
-            plate_width = pauldron_width - i * 1
-            draw.ellipse([center + body_width // 2, plate_y, 
-                         center + body_width // 2 + plate_width, plate_y + pauldron_height - i * 2], 
-                        fill=colors[0], outline=(0, 0, 0), width=1)
-        
-        # Add decorative chest panels (like riveted plates)
+
+        # Draw decorative elements
         if len(colors) > 1:
-            # Upper chest panels
-            panel_color = colors[1] if len(colors) > 1 else tuple(max(0, c - 30) for c in colors[0])
-            # Left panel
-            draw.rectangle([center - 12, center - 5, center - 4, center + 5], 
-                          fill=panel_color, outline=(0, 0, 0), width=1)
-            # Right panel
-            draw.rectangle([center + 4, center - 5, center + 12, center + 5], 
-                          fill=panel_color, outline=(0, 0, 0), width=1)
-            # Central decorative element
-            draw.ellipse([center - 6, center + 3, center + 6, center + 15], fill=colors[1], outline=(0, 0, 0), width=2)
+            draw.ellipse([center - 8, center - 10, center + 8, center + 10], fill=colors[1], outline=(0, 0, 0), width=2)
 
     def _draw_concoction(self, draw: ImageDraw.Draw, size: int, colors: List[tuple]):
         """Draw a stylized potion/concoction."""
