@@ -82,11 +82,19 @@ class SpriteGenerator:
         if self.use_ai and self.client:
             try:
                 if self.ai_provider == "replicate":
-                    return self._generate_with_replicate(materials, item_type, seed)
+                    img = self._generate_with_replicate(materials, item_type, seed)
+                    img = self.remove_bg_photoroom(img)
+                    return img
+
                 elif self.ai_provider == "openai":
-                    return self._generate_with_openai(materials, item_type, seed)
+                    img = self._generate_with_openai(materials, item_type, seed)
+                    img = self.remove_bg_photoroom(img)
+                    return img
+
                 elif self.ai_provider == "comfyui":
-                    return self._generate_with_comfy(materials, item_type, seed)
+                    img = self._generate_with_comfy(materials, item_type, seed)
+                    img = self.remove_bg_photoroom(img)
+                    return img
             except Exception as e:
                 print(f"AI sprite generation failed: {e}, using fallback")
 
@@ -131,6 +139,31 @@ class SpriteGenerator:
         buffer = io.BytesIO()
         image.save(buffer, format='PNG')
         return buffer.getvalue()
+        
+    def remove_bg_photoroom(self, image_bytes: bytes) -> bytes:
+        """Remove background using PhotoRoom API."""
+        api_key = os.getenv("PHOTOROOM_API_KEY")
+        if not api_key:
+            print("PHOTOROOM_API_KEY not found, skipping background removal")
+            return image_bytes
+
+        try:
+            response = requests.post(
+                "https://sdk.photoroom.com/v1/segment",
+                headers={"x-api-key": api_key},
+                files={"image_file": ("sprite.png", image_bytes, "image/png")},
+                timeout=10
+            )
+
+            if response.status_code != 200:
+                print("PhotoRoom error:", response.text)
+                return image_bytes
+
+            return response.content
+
+        except Exception as e:
+            print("PhotoRoom background removal failed:", e)
+            return image_bytes
 
     def _generate_with_openai(
         self,
@@ -265,13 +298,13 @@ class SpriteGenerator:
         materials_str = ", ".join(materials).lower()
 
         prompts = {
-            "weapon": f"pixel art game sprite, RPG {item_type}, fantasy weapon made from {materials_str}, "
-                     f"centered on white background, isometric view, 64x64 pixels, detailed, clean lines",
-            "armor": f"pixel art game sprite, RPG {item_type}, fantasy armor made from {materials_str}, "
-                    f"centered on white background, isometric view, 64x64 pixels, detailed, clean lines",
+            "weapon": f"pixel art game sprite, RPG {item_type}, fantasy 2-handed weapon made from {materials_str}, "
+                     f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines",
+            "armor": f"pixel art game sprite, RPG {item_type}, fantasy armor chestpiece made from {materials_str}, "
+                    f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines",
             "concoction": f"pixel art game sprite, fantasy RPG health restore bottle made from {materials_str}, "
                          f"magical glowing flask, video game powerup collectible, cartoon style healing item, "
-                         f"centered on white background, isometric view, 64x64 pixels, detailed, clean lines, bright friendly colors"
+                         f"centered on white background, isometric view, 32x32 pixels, low-detailed, clean lines, bright friendly colors"
         }
 
         return prompts.get(item_type, f"pixel art game sprite, {item_type} made from {materials_str}")
@@ -368,23 +401,70 @@ class SpriteGenerator:
         draw.rectangle([center - 15, center + 8, center + 15, center + 14], fill=guard_color, outline=(0, 0, 0), width=2)
 
     def _draw_armor(self, draw: ImageDraw.Draw, size: int, colors: List[tuple]):
-        """Draw a stylized armor piece."""
+        """Draw a stylized armor piece with cuirass-like shape covering shoulders."""
         center = size // 2
 
-        # Draw main body (chestplate shape)
+        # Draw main body (cuirass/breastplate shape) with layered design
+        # Top is flat and covers shoulders
+        top_y = center - 22  # Higher up to cover more area
+        body_width = 50  # Narrower at top (reduced from 56)
+        shoulder_width = 28  # Width at shoulder level (slightly narrower)
+        
+        # Main cuirass body - wider at top, tapering to bottom
         body_points = [
-            (center, center - 30),
-            (center + 25, center - 10),
-            (center + 20, center + 30),
-            (center - 20, center + 30),
-            (center - 25, center - 10)
+            (center - body_width // 2, top_y),           # Left top (flat)
+            (center + body_width // 2, top_y),           # Right top (flat)
+            (center + shoulder_width, center - 3),        # Right shoulder
+            (center + 22, center + 25),                  # Right mid
+            (center + 18, center + 32),                  # Right bottom
+            (center - 18, center + 32),                  # Left bottom
+            (center - 22, center + 25),                  # Left mid
+            (center - shoulder_width, center - 3)        # Left shoulder
         ]
+        
+        # Draw main armor body
         draw.polygon(body_points, fill=colors[0])
         draw.line(body_points + [body_points[0]], fill=(0, 0, 0), width=2)
-
-        # Draw decorative elements
+        
+        # Ensure top is completely flat
+        draw.line([(center - body_width // 2, top_y), (center + body_width // 2, top_y)], 
+                 fill=colors[0], width=3)
+        draw.line([(center - body_width // 2, top_y), (center + body_width // 2, top_y)], 
+                 fill=(0, 0, 0), width=1)
+        
+        # Add layered shoulder pauldrons (multi-plate design)
+        pauldron_height = 12
+        pauldron_width = 8
+        pauldron_offset = 4
+        
+        # Left shoulder pauldron - layered plates
+        for i in range(3):
+            plate_y = top_y + i * pauldron_offset
+            plate_width = pauldron_width - i * 1
+            draw.ellipse([center - body_width // 2 - plate_width, plate_y, 
+                         center - body_width // 2, plate_y + pauldron_height - i * 2], 
+                        fill=colors[0], outline=(0, 0, 0), width=1)
+        
+        # Right shoulder pauldron - layered plates
+        for i in range(3):
+            plate_y = top_y + i * pauldron_offset
+            plate_width = pauldron_width - i * 1
+            draw.ellipse([center + body_width // 2, plate_y, 
+                         center + body_width // 2 + plate_width, plate_y + pauldron_height - i * 2], 
+                        fill=colors[0], outline=(0, 0, 0), width=1)
+        
+        # Add decorative chest panels (like riveted plates)
         if len(colors) > 1:
-            draw.ellipse([center - 8, center - 10, center + 8, center + 10], fill=colors[1], outline=(0, 0, 0), width=2)
+            # Upper chest panels
+            panel_color = colors[1] if len(colors) > 1 else tuple(max(0, c - 30) for c in colors[0])
+            # Left panel
+            draw.rectangle([center - 12, center - 5, center - 4, center + 5], 
+                          fill=panel_color, outline=(0, 0, 0), width=1)
+            # Right panel
+            draw.rectangle([center + 4, center - 5, center + 12, center + 5], 
+                          fill=panel_color, outline=(0, 0, 0), width=1)
+            # Central decorative element
+            draw.ellipse([center - 6, center + 3, center + 6, center + 15], fill=colors[1], outline=(0, 0, 0), width=2)
 
     def _draw_concoction(self, draw: ImageDraw.Draw, size: int, colors: List[tuple]):
         """Draw a stylized potion/concoction."""

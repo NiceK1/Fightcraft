@@ -179,7 +179,7 @@ class ResultSlot:
         """Render the result slot with label."""
         # Draw label
         label = font.render("Result", True, (255, 255, 255))
-        surface.blit(label, (self.slot.x, self.slot.y - 30))
+        surface.blit(label, (self.slot.x + 20, self.slot.y - 30))
 
         # Draw slot
         hovered = self.contains_point(mouse_pos) if mouse_pos else False
