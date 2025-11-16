@@ -85,15 +85,27 @@ class CraftingScene(Scene):
         self.tab_colors = {
             "weapon": (255, 100, 100),
             "armor": (100, 100, 255),
-            "concoction": (255, 255, 100)
+            "concoction": (180, 150, 0)  # Dark yellow for better contrast
         }
 
-        # Create UI elements
-        self.inventory = Inventory(50, 450, rows=2, cols=8)
-        self.equipment_slots = EquipmentSlots(950, 100)
-        self.crafting_grid = CraftingGrid(300, 150)
-        self.result_slot = ResultSlot(700, 200)
-        self.craft_button = CraftingButton(650, 320)
+        # Create UI elements - positioned according to layout
+        # Instructions end at ~160, so crafting grid starts below them
+        self.crafting_grid = CraftingGrid(120, 170)
+        # Result slot on the right, same height as crafting grid
+        # Result slot: label (30px) + slot (100px) = 130px total
+        self.result_slot = ResultSlot(810, 230)
+        # Craft button below result slot
+        # Result slot ends at 170 + 130 = 300, add 10px spacing = 310
+        self.craft_button = CraftingButton(760, 390)
+        # Inventory will be positioned dynamically below materials label in render()
+        # Using approximate position for initialization
+        self.inventory = Inventory(50, 470, rows=2, cols=6)
+        # Equipment slots on the right, bottom - horizontally arranged
+        # Position: right side, below craft button
+        # Craft button: y=310, height=50, ends at 360, add 20px spacing = 380
+        equipment_x = 700  # Align with result slot
+        equipment_y = 465  # Below craft button with spacing
+        self.equipment_slots = EquipmentSlots(equipment_x, equipment_y)
 
         # Store all materials by category
         all_materials = create_base_materials()
@@ -169,6 +181,18 @@ class CraftingScene(Scene):
 
     def _handle_mouse_down(self, pos: Tuple[int, int]):
         """Handle mouse button down for drag start."""
+        # Check tabs first (they're at the top, centered)
+        tab_names = {"weapon": "[1] Weapons", "armor": "[2] Armor", "concoction": "[3] Concoctions"}
+        tab_y = 60  # Same as in render
+        # Calculate centered tab positions
+        total_tabs_width = len(self.tabs) * 250 - 10  # 240 width + 10 spacing
+        tab_start_x = (self.game.width - total_tabs_width) // 2
+        for i, tab in enumerate(self.tabs):
+            tab_rect = pygame.Rect(tab_start_x + i * 250, tab_y, 240, 40)
+            if tab_rect.collidepoint(pos):
+                self._switch_tab(tab)
+                return  # Don't process other clicks when switching tabs
+        
         # Check inventory
         slot_index = self.inventory.get_slot_at_pos(pos)
         if slot_index is not None and self.inventory.slots[slot_index].item:
@@ -310,66 +334,96 @@ class CraftingScene(Scene):
     def render(self):
         mouse_pos = pygame.mouse.get_pos()
 
-        # Draw tabs at top
+        # Draw status message at top left
+        status_surf = self.game.small_font.render(self.status_message, True, (100, 255, 100))
+        self.screen.blit(status_surf, (50, 10))
+
+        # Draw title at the very top, centered
+        title = self.game.font.render(f"Crafting: {self.current_tab.capitalize()}", True, (255, 200, 50))
+        title_rect = title.get_rect(center=(self.game.width // 2, 30))
+        self.screen.blit(title, title_rect)
+
+        # Draw tabs below title, centered
         tab_names = {"weapon": "[1] Weapons", "armor": "[2] Armor", "concoction": "[3] Concoctions"}
-        tab_x = 50
+        tab_y = 60  # Position tabs below title
+        # Calculate centered tab positions
+        total_tabs_width = len(self.tabs) * 250 - 10  # 240 width + 10 spacing
+        tab_start_x = (self.game.width - total_tabs_width) // 2
         for i, tab in enumerate(self.tabs):
-            tab_rect = pygame.Rect(tab_x + i * 250, 10, 240, 40)
+            tab_rect = pygame.Rect(tab_start_x + i * 250, tab_y, 240, 40)
 
             # Tab color
             is_active = (tab == self.current_tab)
+            is_hovered = tab_rect.collidepoint(mouse_pos)
+            
             if is_active:
                 color = self.tab_colors[tab]
                 text_color = (255, 255, 255)
+            elif is_hovered:
+                # Hover effect - slightly brighter than inactive
+                color = tuple(min(255, c + 30) for c in (60, 60, 60))
+                text_color = (200, 200, 200)
             else:
                 color = (60, 60, 60)
                 text_color = (150, 150, 150)
 
             # Draw tab
             pygame.draw.rect(self.screen, color, tab_rect)
-            pygame.draw.rect(self.screen, (200, 200, 200), tab_rect, 2)
+            border_color = (255, 255, 255) if is_hovered and not is_active else (200, 200, 200)
+            pygame.draw.rect(self.screen, border_color, tab_rect, 2)
 
             # Draw tab text
             tab_text = self.game.small_font.render(tab_names[tab], True, text_color)
             text_rect = tab_text.get_rect(center=tab_rect.center)
             self.screen.blit(tab_text, text_rect)
 
-        # Draw title
-        title = self.game.font.render(f"Crafting: {self.current_tab.capitalize()}", True, (255, 200, 50))
-        self.screen.blit(title, (400, 70))
-
-        # Draw instructions
+        # Draw instructions below tabs with spacing
         instructions = [
             "Drag materials to grid - AI creates unique items!",
             f"Press 1/2/3 to switch tabs. ESC for combat"
         ]
+        instructions_y = tab_y + 50  # Add spacing below tabs
         for i, inst in enumerate(instructions):
             inst_surf = self.game.small_font.render(inst, True, (200, 200, 200))
-            self.screen.blit(inst_surf, (50, 50 + i * 25))
+            self.screen.blit(inst_surf, (480, instructions_y + i * 25))
 
-        # Draw status message
-        status_surf = self.game.small_font.render(self.status_message, True, (100, 255, 100))
-        self.screen.blit(status_surf, (50, 100))
-
-        # Draw crafting status (materials count) - below inventory
+        # Calculate crafting grid height: 3 rows * 80px + 2 spacing * 10px = 260px
+        grid_height = 3 * 80 + 2 * 10
+        grid_bottom = self.crafting_grid.y + grid_height
+        
+        # Draw crafting status (materials count) - below crafting grid
         materials = self.crafting_grid.get_materials()
         mat_count = len(materials)
-
+        
+        # Materials count label below grid, above inventory
+        materials_y = grid_bottom + 10
         status_text = f"Materials: {mat_count}"
         status_color = (100, 255, 100) if mat_count >= 1 else (255, 255, 100)
         status_surf = self.game.small_font.render(status_text, True, status_color)
-        self.screen.blit(status_surf, (50, 630))
+        self.screen.blit(status_surf, (120, materials_y))
+        
+        # Position inventory dynamically below materials label
+        # Text height is approximately 20px, add 10px spacing
+        inventory_y = materials_y + 30
+        # Update inventory position if it changed
+        if self.inventory.y != inventory_y:
+            # Recreate inventory at new position (or update position if Inventory supports it)
+            # For now, we'll update slots manually
+            for i, slot in enumerate(self.inventory.slots):
+                row = i // self.inventory.cols
+                col = i % self.inventory.cols
+                slot.x = self.inventory.x + col * (self.inventory.slot_size + self.inventory.spacing)
+                slot.y = inventory_y + row * (self.inventory.slot_size + self.inventory.spacing)
+            self.inventory.y = inventory_y
 
-        if mat_count >= 1:
-            ready_text = "[OK] Ready to craft!" if mat_count > 1 else "[OK] Add more for complexity"
-            ready_surf = self.game.small_font.render(ready_text, True, (100, 255, 100))
-            self.screen.blit(ready_surf, (200, 630))
-
-        # Draw generation message - below inventory
+        # Draw generation message - bottom right (below equipment slots)
         if self.generation_message:
             gen_color = (255, 255, 100) if self.generating else (100, 255, 100)
-            gen_surf = self.game.font.render(self.generation_message, True, gen_color)
-            self.screen.blit(gen_surf, (50, 660))
+            gen_surf = self.game.small_font.render(self.generation_message, True, gen_color)
+            # Position at bottom right, below equipment slots
+            # Equipment slots height: slot_size (80) + label (~20) = ~100px
+            gen_y = 360  # Below equipment slots with spacing
+            self.screen.blit(gen_surf, (self.equipment_slots.x - 10, gen_y))
 
         # Draw UI elements
         self.inventory.render(self.screen, mouse_pos)

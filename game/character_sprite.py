@@ -113,10 +113,10 @@ class CharacterSprite:
         pygame.draw.ellipse(sprite, (255, 220, 180), neck_rect)
         pygame.draw.ellipse(sprite, (0, 0, 0), neck_rect, 1)
         
-        # Head - positioned closer to body (neck connection)
+        # Head - positioned slightly higher to make room for armor
         head_radius = 22
-        # Head should connect to body, so it's positioned at body_top - head_radius + overlap
-        head_center_y = body_top - head_radius + 6  # 6 pixels overlap for neck
+        # Head should connect to body, positioned slightly higher (halfway between original and previous position)
+        head_center_y = body_top - head_radius + 2  # Moved up by 4 pixels from original (was +6, now +2)
         head_center = (center_x, head_center_y)
         
         # Head with shading
@@ -159,8 +159,8 @@ class CharacterSprite:
         self.mouth_y = head_center[1] + 9
         self.mouth_center_x = center_x
         
-        # Shoulders
-        shoulder_y = body_top + 5
+        # Shoulders - positioned slightly lower to make room for armor
+        shoulder_y = body_top + 10  # Moved down by 5 pixels (was +5, now +10)
         pygame.draw.circle(sprite, self.base_color, (center_x - 20, shoulder_y), 8)
         pygame.draw.circle(sprite, self.base_color, (center_x + 20, shoulder_y), 8)
         pygame.draw.circle(sprite, (0, 0, 0), (center_x - 20, shoulder_y), 8, 1)
@@ -383,22 +383,46 @@ class CharacterSprite:
         
         # Draw armor layer (also rotated if defeated)
         if self.armor_sprite:
-            armor_scaled = pygame.transform.scale(self.armor_sprite, (self.size, self.size))
+            # Make armor slightly smaller and position it lower to cover body better
+            armor_size = int(self.size * 0.5)  # 85% of sprite size
+            armor_scaled = pygame.transform.scale(self.armor_sprite, (armor_size, armor_size))
             if not facing_right:
                 armor_scaled = pygame.transform.flip(armor_scaled, True, False)
-            # Rotate armor if defeated
+            
+            # Offset armor down to better cover body (not head)
+            # Adjusted: was 18%, now 21% (halfway between 18% and 25%)
+            armor_offset_y = int(self.size * 0.45)  # Shift down by 21%
+            
+            # Rotate armor if defeated - maintain relative position to character
             if self.current_state == AnimationState.DEFEATED and self.rotation > 0:
+                # Rotate armor with same rotation as character
                 armor_scaled = pygame.transform.rotate(armor_scaled, self.rotation)
-                armor_rect = armor_scaled.get_rect(center=(render_x + self.size // 2, render_y + self.size // 2))
+                
+                # Calculate armor center position relative to character center
+                # When not rotated: armor is centered horizontally, offset down by armor_offset_y
+                # When rotated: we need to rotate this offset vector
+                character_center_x = render_x + self.size // 2
+                character_center_y = render_y + self.size // 2
+                
+                # Original offset (when not rotated): (0, armor_offset_y)
+                # Rotate this offset vector by rotation angle
+                rotation_rad = math.radians(self.rotation)
+                offset_x_rotated = 0 * math.cos(rotation_rad) - armor_offset_y * math.sin(rotation_rad)
+                offset_y_rotated = 0 * math.sin(rotation_rad) + armor_offset_y * math.cos(rotation_rad)
+                
+                # Apply rotated offset to character center
+                armor_center_x = character_center_x + offset_x_rotated
+                armor_center_y = character_center_y + offset_y_rotated
+                
+                armor_rect = armor_scaled.get_rect(center=(armor_center_x, armor_center_y))
                 armor_x = armor_rect.x
                 armor_y = armor_rect.y
             else:
-                armor_x = render_x
-                armor_y = render_y
-            # Blend armor with character (semi-transparent overlay)
-            armor_overlay = armor_scaled.copy()
-            armor_overlay.set_alpha(180)
-            surface.blit(armor_overlay, (armor_x, armor_y))
+                # Center armor horizontally, but shift down vertically
+                armor_x = render_x + (self.size - armor_size) // 2
+                armor_y = render_y + armor_offset_y
+            # Draw armor fully opaque (no transparency)
+            surface.blit(armor_scaled, (armor_x, armor_y))
         
         # Draw weapon (in hand) - skip if defeated (falls with character)
         if self.weapon_sprite and self.current_state != AnimationState.DEFEATED:
