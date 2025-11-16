@@ -534,7 +534,16 @@ class CraftingScene(Scene):
         self.inventory.render(self.screen, mouse_pos)
         self.crafting_grid.render(self.screen, mouse_pos)
         self.craft_button.render(self.screen, self.game.small_font)
-        self.result_slot.render(self.screen, self.game.small_font, mouse_pos)
+        
+        # Determine item type hint based on current tab
+        from game.item import ItemType
+        item_type_map = {
+            "weapon": ItemType.WEAPON,
+            "armor": ItemType.ARMOR,
+            "concoction": ItemType.CONCOCTION
+        }
+        item_type_hint = item_type_map.get(self.current_tab)
+        self.result_slot.render(self.screen, self.game.small_font, mouse_pos, item_type_hint=item_type_hint)
         self.equipment_slots.render(self.screen, self.game.small_font, mouse_pos)
 
         # Draw dragging item

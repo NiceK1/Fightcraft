@@ -175,12 +175,21 @@ class ResultSlot:
         """Check if position is within result slot."""
         return self.slot.contains_point(pos)
 
-    def render(self, surface: pygame.Surface, font: pygame.font.Font, mouse_pos: Optional[Tuple[int, int]] = None):
+    def render(self, surface: pygame.Surface, font: pygame.font.Font, mouse_pos: Optional[Tuple[int, int]] = None, item_type_hint=None):
         """Render the result slot with label."""
+        from game.item import ItemType
+        
         # Draw label
         label = font.render("Result", True, (255, 255, 255))
         surface.blit(label, (self.slot.x + 20, self.slot.y - 30))
 
-        # Draw slot
+        # Determine item type hint for silhouette
+        hint_type = None
+        if self.slot.item:
+            hint_type = self.slot.item.item_type
+        elif item_type_hint:
+            hint_type = item_type_hint
+
+        # Draw slot with silhouette hint
         hovered = self.contains_point(mouse_pos) if mouse_pos else False
-        self.slot.render(surface, hovered)
+        self.slot.render(surface, hovered, item_type_hint=hint_type)
