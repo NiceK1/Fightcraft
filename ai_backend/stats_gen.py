@@ -61,7 +61,8 @@ class StatsGenerator:
     def generate(
         self,
         materials: List[str],
-        item_type: Optional[str] = None
+        item_type: Optional[str] = None,
+        weapon_subtype: Optional[str] = None
     ) -> Dict[str, Any]:
         """Generate item stats and properties."""
 
@@ -73,9 +74,9 @@ class StatsGenerator:
         if self.use_ai and self.client:
             try:
                 if self.ai_provider == "anthropic":
-                    return self._generate_with_anthropic(materials, item_type)
+                    return self._generate_with_anthropic(materials, item_type, weapon_subtype)
                 elif self.ai_provider == "openai":
-                    return self._generate_with_openai(materials, item_type)
+                    return self._generate_with_openai(materials, item_type, weapon_subtype)
             except Exception as e:
                 print(f"AI generation failed: {e}, using fallback")
 
@@ -108,7 +109,8 @@ class StatsGenerator:
     def _generate_with_anthropic(
         self,
         materials: List[str],
-        item_type: str
+        item_type: str,
+        weapon_subtype: Optional[str] = None
     ) -> Dict[str, Any]:
         """Generate stats using Anthropic Claude."""
 
@@ -118,15 +120,21 @@ class StatsGenerator:
         applicable_effects = [e for e in EFFECT_POOL if item_type in e["applies_to"]]
         effects_list = "\n".join([f"- {e['type']}: {e['description']}" for e in applicable_effects])
 
+        # Build item type description with weapon subtype if applicable
+        item_type_desc = item_type
+        if item_type == "weapon" and weapon_subtype:
+            item_type_desc = f"{weapon_subtype} (weapon)"
+
         prompt = f"""You are a game balance designer for an RPG crafting game. Create an item with these properties:
 
-**Item Type:** {item_type}
+**Item Type:** {item_type_desc}
 **Materials Used:** {materials_str}
 
 **Available Special Effects** (choose ONE from this list, or leave empty for common items):
 {effects_list}
 
 Generate balanced and creative stats. Consider the properties implied by each material name.
+{f"Note: This is a {weapon_subtype}, so create an appropriate name for this weapon type." if weapon_subtype else ""}
 
 Provide your response in this exact JSON format:
 {{
@@ -189,7 +197,8 @@ Return ONLY the JSON, no other text."""
     def _generate_with_openai(
         self,
         materials: List[str],
-        item_type: str
+        item_type: str,
+        weapon_subtype: Optional[str] = None
     ) -> Dict[str, Any]:
         """Generate stats using OpenAI GPT-4."""
 
@@ -199,13 +208,19 @@ Return ONLY the JSON, no other text."""
         applicable_effects = [e for e in EFFECT_POOL if item_type in e["applies_to"]]
         effects_list = "\n".join([f"- {e['type']}: {e['description']}" for e in applicable_effects])
 
+        # Build item type description with weapon subtype if applicable
+        item_type_desc = item_type
+        if item_type == "weapon" and weapon_subtype:
+            item_type_desc = f"{weapon_subtype} (weapon)"
+
         system_prompt = """You are a game balance designer for an RPG crafting game.
 Generate balanced and creative item stats based on the materials used in crafting.
 Consider the properties implied by each material name when assigning stats."""
 
         user_prompt = f"""Create an item with these properties:
-- Type: {item_type}
+- Type: {item_type_desc}
 - Materials used: {materials_str}
+{f"- Note: This is a {weapon_subtype}, so create an appropriate name for this weapon type." if weapon_subtype else ""}
 
 **Available Special Effects** (choose ONE from this list, or leave empty for common items):
 {effects_list}

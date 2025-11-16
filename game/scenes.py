@@ -323,6 +323,10 @@ class CraftingScene(Scene):
         self.armor_materials = all_materials[6:12]
         self.concoction_materials = all_materials[12:18]
 
+        # Weapon type selection (for weapon tab only)
+        self.weapon_types = ["sword", "axe", "spear"]
+        self.selected_weapon_type = "sword"  # Default to sword
+
         # Populate inventory based on current tab
         self._update_inventory_for_tab()
 
@@ -400,6 +404,44 @@ class CraftingScene(Scene):
             # Fallback to simple tooltip if there's any error
             print(f"Error generating tooltip: {e}")
             return [(item.name if hasattr(item, 'name') else "Item", (200, 200, 200))]
+
+    def _render_weapon_type_selector(self, mouse_pos: Tuple[int, int]):
+        """Render radio buttons for weapon type selection."""
+        # Position to the right of the crafting grid
+        selector_x = 500
+        selector_y = 280
+
+        # Title
+        title_surf = self.game.small_font.render("Weapon Type:", True, (255, 200, 100))
+        self.screen.blit(title_surf, (selector_x, selector_y))
+
+        # Radio buttons (with more spacing from title)
+        button_y = selector_y + 40
+        button_spacing = 30
+        radio_radius = 8
+
+        for i, weapon_type in enumerate(self.weapon_types):
+            # Calculate button position
+            button_x = selector_x + 10
+            current_button_y = button_y + i * button_spacing
+            button_center = (button_x, current_button_y)
+
+            # Check if mouse is hovering over this option
+            mouse_distance = ((mouse_pos[0] - button_x) ** 2 + (mouse_pos[1] - current_button_y) ** 2) ** 0.5
+            is_hovered = mouse_distance <= radio_radius + 5
+
+            # Outer circle
+            outer_color = (255, 255, 255) if is_hovered else (200, 200, 200)
+            pygame.draw.circle(self.screen, outer_color, button_center, radio_radius, 2)
+
+            # Inner filled circle if selected
+            if weapon_type == self.selected_weapon_type:
+                pygame.draw.circle(self.screen, (100, 200, 255), button_center, radio_radius - 3)
+
+            # Label
+            label_color = (255, 255, 255) if weapon_type == self.selected_weapon_type else (200, 200, 200)
+            label_surf = self.game.small_font.render(weapon_type.capitalize(), True, label_color)
+            self.screen.blit(label_surf, (button_x + radio_radius + 10, current_button_y - 10))
 
     def _update_inventory_for_tab(self):
         """Update inventory to show only materials for current tab."""
@@ -480,7 +522,28 @@ class CraftingScene(Scene):
             if tab_rect.collidepoint(pos):
                 self._switch_tab(tab)
                 return  # Don't process other clicks when switching tabs
-        
+
+        # Check weapon type radio buttons (only for weapon tab)
+        if self.current_tab == "weapon":
+            selector_x = 500
+            selector_y = 280
+            button_y = selector_y + 40
+            button_spacing = 30
+            radio_radius = 8
+
+            for i, weapon_type in enumerate(self.weapon_types):
+                button_x = selector_x + 10
+                current_button_y = button_y + i * button_spacing
+
+                # Check if click is within radio button area (including label)
+                mouse_distance = ((pos[0] - button_x) ** 2 + (pos[1] - current_button_y) ** 2) ** 0.5
+                # Also check label area
+                label_rect = pygame.Rect(button_x - radio_radius - 5, current_button_y - 15, 100, 25)
+
+                if mouse_distance <= radio_radius + 5 or label_rect.collidepoint(pos):
+                    self.selected_weapon_type = weapon_type
+                    return
+
         # Check inventory
         slot_index = self.inventory.get_slot_at_pos(pos)
         if slot_index is not None and self.inventory.slots[slot_index].item:
@@ -593,8 +656,11 @@ class CraftingScene(Scene):
 
         # Determine item type based on current tab
         from game.item import ItemType
+        weapon_subtype = None
         if self.current_tab == "weapon":
             item_type = ItemType.WEAPON
+            # Pass weapon type separately to be integrated into the prompt
+            weapon_subtype = self.selected_weapon_type
         elif self.current_tab == "armor":
             item_type = ItemType.ARMOR
         else:  # concoction
@@ -609,8 +675,8 @@ class CraftingScene(Scene):
             # Store last crafted item for description display
             self.last_crafted_item = item
 
-        # Pass explicit item type based on current tab
-        self.ai_client.generate_item_async(materials, item_type, on_complete)
+        # Pass explicit item type and weapon subtype
+        self.ai_client.generate_item_async(materials, item_type, on_complete, weapon_subtype=weapon_subtype)
 
     def update(self, dt: float):
         # Update craft button state - need at least 1 material
@@ -727,7 +793,11 @@ class CraftingScene(Scene):
         self.inventory.render(self.screen, mouse_pos)
         self.crafting_grid.render(self.screen, mouse_pos)
         self.craft_button.render(self.screen, self.game.small_font)
-        
+
+        # Draw weapon type selector (only for weapon tab)
+        if self.current_tab == "weapon":
+            self._render_weapon_type_selector(mouse_pos)
+
         # Determine item type hint based on current tab
         from game.item import ItemType
         item_type_map = {
