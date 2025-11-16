@@ -4,15 +4,15 @@ An AI-powered 2D crafting and combat game built with Pygame. Craft unique items 
 
 ## Features
 
-- **AI-Powered Sprite Generation**: Items sprites are generated using AI based on the materials you combine
+- **AI-Powered Sprite Generation**: Item sprites are generated using AI based on the materials you combine
 - **AI-Powered Stats Generation**: Item properties and stats are procedurally generated with AI
-- **Minecraft-Style Crafting**: 3x3 crafting grid with predefined recipes
+- **Freeform Crafting**: 3x3 crafting grid - use 1-9 materials in any combination
 - **Weapon Type Selection**: Choose between sword, axe, or spear when crafting weapons
 - **Item Info System**: View detailed item descriptions and effects via info button popup
 - **Equipment System**: Equip weapons, armor, and buffs/concoctions
 - **Turn-Based Combat**: Fight enemies using your crafted items with real-time active effects display
 - **Active Effects Tracking**: See all status effects, durations, and stack counts during combat
-- **Intelligent Caching**: Generated sprites and stats are cached for instant reuse
+- **Unique Items**: Every craft generates a unique item based on your material combination
 - **Fallback System**: Works without AI backend using procedural generation
 
 ## Project Structure
@@ -127,7 +127,7 @@ For full AI-powered sprite and stats generation:
 1. **Select Tab**: Switch between Weapon, Armor, and Concoction tabs
 2. **Choose Weapon Type** (Weapon tab only): Select sword, axe, or spear using radio buttons
 3. **Drag and Drop Materials**: Click and drag materials from your inventory to the 3x3 crafting grid
-4. **Craft Items**: Place exactly 3 materials in the grid to enable crafting
+4. **Craft Items**: Place at least 1 material (up to 9 materials) in the grid to enable crafting
 5. **Generate with AI**: Click "Craft Item" button - AI will generate unique sprite and stats
 6. **View Item Info**: Click the info button (i) next to crafted items to see detailed descriptions
 7. **Equip Items**: Drag crafted items to equipment slots (Weapon, Armor, Buff)
@@ -139,24 +139,32 @@ For full AI-powered sprite and stats generation:
 - **Active Effects**: View all status effects with durations and stack counts below health bars
 - Press **ESC** to return to crafting
 
-## Crafting Recipes
+## Crafting System
 
-The game includes several pre-defined recipes. You need exactly 3 materials:
+The game uses a **freeform crafting system** - combine any materials you want! The AI will generate unique items based on your material combinations.
 
-### Weapons
+### Crafting Tips
+- Use **at least 1 material** (up to 9 in the 3x3 grid)
+- More materials = more complex items with varied properties
+- Different materials affect item stats and rarity
+- Experiment with combinations to discover powerful items!
+
+### Example Material Combinations
+
+**Weapons:**
 - Iron Ingot + Oak Wood + Crystal Shard
 - Dragon Scale + Dark Stone + Magic Essence
-- Iron Ingot + Iron Ingot + Oak Wood
+- Single material (e.g., Iron Ingot only) works too!
 
-### Armor
+**Armor:**
 - Iron Ingot + Leather + Dark Stone
 - Dragon Scale + Gold Bar + Crystal Shard
-- Leather + Leather + Iron Ingot
+- Multiple same materials (e.g., Leather + Leather + Leather)
 
-### Concoctions (Buffs)
+**Concoctions:**
 - Magic Essence + Crystal Shard + Dragon Scale
-- Oak Wood + Magic Essence + Leather
-- Crystal Shard + Crystal Shard + Magic Essence
+- Oak Wood + Magic Essence
+- Any mystical/organic materials
 
 ## Architecture
 
@@ -168,22 +176,24 @@ Main Menu → Crafting Scene → Combat Scene → Crafting Scene → ...
 ### AI Generation Pipeline
 ```
 Game (Pygame)
-    ↓ HTTP Request
+    ↓ HTTP Request (materials + item type + weapon subtype)
 AI Backend (FastAPI)
     ↓
-Check Cache → If miss → Generate with AI
-    ↓                         ↓
-Return cached data      ComfyUI/GPT-4
-                             ↓
-                        Cache result
-                             ↓
-                        Return new data
+Generate with AI (every craft is unique)
+    ↓
+Replicate/OpenAI (Sprites) + Claude/GPT-4 (Stats)
+    ↓
+Optional: Background Removal (Clipdrop)
+    ↓
+Return generated item data
 ```
 
-### Caching System
-- **Memory Cache**: LRU cache for recently generated sprites (100 items)
-- **Disk Cache**: Persistent cache in `assets/cache/`
-- **Stats Cache**: JSON file storing generated stats
+### Generation System
+- **Real-Time Generation**: Each craft generates a new unique item
+- **No Pre-Caching**: Items are created fresh based on your material combinations
+- **AI-Powered**: Uses Replicate SDXL for sprites and Claude/GPT-4 for stats
+- **Background Removal**: Optional Clipdrop integration for clean sprites
+- **Fallback System**: Procedural generation if AI services are unavailable
 
 ## Configuration
 
