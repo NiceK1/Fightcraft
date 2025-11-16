@@ -549,7 +549,7 @@ class CraftingScene(Scene):
             gen_surf = self.game.small_font.render(self.generation_message, True, gen_color)
             # Position at bottom right, below equipment slots
             # Equipment slots height: slot_size (80) + label (~20) = ~100px
-            gen_y = 360  # Below equipment slots with spacing
+            gen_y = 420  # Below equipment slots with spacing
             self.screen.blit(gen_surf, (self.equipment_slots.x - 10, gen_y))
 
         # Draw UI elements
