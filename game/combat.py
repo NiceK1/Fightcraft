@@ -550,8 +550,12 @@ class CombatRenderer:
         health_text_rect = health_surf.get_rect(center=(center_x, bar_y + bar_height + 15))
         surface.blit(health_surf, health_text_rect)
 
-        # Draw stats (centered)
-        stats_y = bar_y + bar_height + 35
+        # Draw active effects below health
+        effects_y = bar_y + bar_height + 35
+        effect_display_height = self._render_active_effects(surface, fighter, center_x, effects_y)
+
+        # Draw stats (centered) - adjust y position based on effects height
+        stats_y = effects_y + effect_display_height
         stats = [
             f"Damage: {fighter.get_total_damage()}",
             f"Armor: {fighter.get_total_armor()}",
@@ -581,6 +585,65 @@ class CombatRenderer:
             item_surf = self.small_font.render(item_text, True, (180, 180, 180))
             item_rect = item_surf.get_rect(center=(center_x, items_y + 25 + i * 22))
             surface.blit(item_surf, item_rect)
+
+    def _render_active_effects(
+        self,
+        surface: pygame.Surface,
+        fighter: Fighter,
+        center_x: int,
+        y: int
+    ) -> int:
+        """
+        Render active effects on a fighter.
+        Returns the height used by the effects display.
+        """
+        if not fighter.effects.active_effects:
+            return 0  # No effects, no space used
+
+        # Effect type colors
+        effect_colors = {
+            EffectType.FIRE: (255, 100, 50),
+            EffectType.POISON: (100, 255, 100),
+            EffectType.BLEED: (200, 50, 50),
+            EffectType.FREEZE: (150, 200, 255),
+            EffectType.LIGHTNING: (200, 200, 255),
+            EffectType.LIFESTEAL: (255, 100, 200),
+            EffectType.VAMPIRIC: (200, 0, 100),
+            EffectType.CRITICAL: (255, 255, 100),
+            EffectType.REFLECT: (180, 180, 255),
+            EffectType.SHIELD: (200, 200, 50)
+        }
+
+        # Title
+        title_surf = self.small_font.render("Active Effects:", True, (255, 200, 100))
+        title_rect = title_surf.get_rect(center=(center_x, y))
+        surface.blit(title_surf, title_rect)
+
+        current_y = y + 20
+
+        # Render each effect
+        for effect in fighter.effects.active_effects:
+            # Get effect color
+            color = effect_colors.get(effect.effect_type, (200, 200, 200))
+
+            # Format effect name
+            effect_name = effect.effect_type.value.title()
+
+            # Build effect text with duration and stacks
+            if effect.stacks > 1:
+                effect_text = f"{effect_name} (x{effect.stacks}) - {effect.duration} turns"
+            else:
+                effect_text = f"{effect_name} - {effect.duration} turns"
+
+            # Render effect text
+            effect_surf = self.small_font.render(effect_text, True, color)
+            effect_rect = effect_surf.get_rect(center=(center_x, current_y))
+            surface.blit(effect_surf, effect_rect)
+
+            current_y += 18
+
+        # Return total height used
+        return current_y - y
 
     def render_combat_log(
         self,
