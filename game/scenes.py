@@ -504,15 +504,17 @@ class CraftingScene(Scene):
             text_rect = tab_text.get_rect(center=tab_rect.center)
             self.screen.blit(tab_text, text_rect)
 
-        # Draw instructions below tabs with spacing
+        # Draw instructions below tabs with spacing, centered
         instructions = [
             "Drag materials to grid - AI creates unique items!",
             f"Press 1/2/3 to switch tabs. Click Fight or press ESC for combat"
         ]
-        instructions_y = tab_y + 50  # Add spacing below tabs
+        instructions_y = tab_y + 60  # Add spacing below tabs
         for i, inst in enumerate(instructions):
             inst_surf = self.game.small_font.render(inst, True, (200, 200, 200))
-            self.screen.blit(inst_surf, (480, instructions_y + i * 25))
+            # Center the text horizontally
+            inst_rect = inst_surf.get_rect(center=(self.game.width // 2, instructions_y + i * 25))
+            self.screen.blit(inst_surf, inst_rect)
 
         # Calculate crafting grid height: 3 rows * 80px + 2 spacing * 10px = 260px
         grid_height = 3 * 80 + 2 * 10
