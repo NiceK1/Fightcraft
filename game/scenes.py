@@ -14,12 +14,14 @@ class MainMenuScene(Scene):
 
     def __init__(self, game):
         super().__init__(game)
+        self.logo = pygame.image.load("assets/logo/logo.png").convert_alpha()
+        self.logo = pygame.transform.scale(self.logo, (450, 280))
         self.title_font = pygame.font.Font(None, 72)
         self.menu_font = pygame.font.Font(None, 48)
 
         self.options = ["Start Game", "Quit"]
         self.selected = 0
-
+        
     def handle_event(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP:
@@ -39,22 +41,22 @@ class MainMenuScene(Scene):
 
     def render(self):
         # Draw title
-        title = self.title_font.render("FIGHTCRAFT", True, (255, 200, 50))
-        title_rect = title.get_rect(center=(self.game.width // 2, 150))
-        self.screen.blit(title, title_rect)
+        logo_rect = self.logo.get_rect(center=(self.game.width // 2, 150))
+
+        self.screen.blit(self.logo, logo_rect)
 
         # Draw subtitle
         subtitle = self.game.small_font.render(
             "AI-Powered Crafting & Combat", True, (200, 200, 200)
         )
-        subtitle_rect = subtitle.get_rect(center=(self.game.width // 2, 220))
+        subtitle_rect = subtitle.get_rect(center=(self.game.width // 2, 270))
         self.screen.blit(subtitle, subtitle_rect)
 
         # Draw menu options
         for i, option in enumerate(self.options):
             color = (255, 255, 100) if i == self.selected else (200, 200, 200)
             text = self.menu_font.render(option, True, color)
-            text_rect = text.get_rect(center=(self.game.width // 2, 350 + i * 60))
+            text_rect = text.get_rect(center=(self.game.width // 2, 380 + i * 60))
             self.screen.blit(text, text_rect)
 
             # Draw selector
