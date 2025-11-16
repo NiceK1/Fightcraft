@@ -117,7 +117,8 @@ class MainMenuScene(Scene):
         self.selected = 0
         self.pressed_option = None  # Track which option is being pressed
         self.press_timer = 0.0  # Timer for press animation
-
+        self.logo = pygame.image.load("assets/logo/logo.png").convert_alpha()
+        self.logo = pygame.transform.scale(self.logo, (450, 280))
     def handle_event(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP:
@@ -182,92 +183,61 @@ class MainMenuScene(Scene):
             self.press_timer = max(0, self.press_timer - dt)
 
     def render(self):
-        # Draw title
-        title = self.title_font.render("FIGHTCRAFT", True, (255, 200, 50))
-        title_rect = title.get_rect(center=(self.game.width // 2, 150))
-        self.screen.blit(title, title_rect)
+        # Draw title image
+        logo_rect = self.logo.get_rect(center=(self.game.width // 2, 170))
+        self.screen.blit(self.logo, logo_rect)
 
         # Draw subtitle
         subtitle = self.game.small_font.render(
             "AI-Powered Crafting & Combat", True, (200, 200, 200)
         )
-        subtitle_rect = subtitle.get_rect(center=(self.game.width // 2, 220))
+        subtitle_rect = subtitle.get_rect(center=(self.game.width // 2, 290))
         self.screen.blit(subtitle, subtitle_rect)
 
-        # Draw menu options with interactive states
+        rendered = [self.menu_font.render(opt, True, (255, 255, 255)) for opt in self.options]
+        text_y_start = 350
         mouse_pos = pygame.mouse.get_pos()
+
         for i, option in enumerate(self.options):
-            text = self.menu_font.render(option, True, (200, 200, 200))
-            text_rect = text.get_rect(center=(self.game.width // 2, 350 + i * 60))
-            hover_rect = text_rect.inflate(20, 10)
-            is_hovered = hover_rect.collidepoint(mouse_pos) and self.pressed_option is None
+            text_surface = self.menu_font.render(option, True, (255, 255, 255))
+            text_rect = text_surface.get_rect(center=(self.game.width // 2, text_y_start + i * 70))
+
+            is_hovered = text_rect.inflate(30, 20).collidepoint(mouse_pos) and self.pressed_option is None
             is_pressed = (self.pressed_option == i) and self.press_timer > 0
-            
-            # Determine colors and effects based on state
+
             if is_pressed:
-                # Pressed state - darker, slightly smaller
-                text_color = (150, 150, 150)
-                border_color = (200, 200, 100)
-                border_width = 2
-                scale = 0.95
-                offset_y = 1  # Slight downward shift
-            elif is_hovered or i == self.selected:
-                # Hover/selected state - bright yellow, glowing effect
-                text_color = (255, 255, 100)
-                border_color = (255, 255, 150)
-                border_width = 3
-                scale = 1.0
+                text_color = (170, 170, 170)
+                glow_color = (220, 220, 120)
+                offset_y = 1
+                glow_strength = 0
+            elif is_hovered:
+                text_color = (255, 255, 120)
+                glow_color = (255, 255, 180)
                 offset_y = 0
+                glow_strength = 3
             else:
-                # Normal state
                 text_color = (200, 200, 200)
-                border_color = None
-                border_width = 0
-                scale = 1.0
+                glow_color = None
                 offset_y = 0
-            
-            # Draw glow effect for hover/selected
-            if (is_hovered or (i == self.selected and not is_pressed)) and border_color:
-                glow_color = border_color if isinstance(border_color, tuple) else (255, 255, 150)
-                glow_rect = text_rect.inflate(30, 15)
-                # Draw multiple layers for glow effect
-                for glow_offset in [15, 10, 5]:
-                    glow_alpha = max(0, 25 - glow_offset * 2)
-                    glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
-                    inner_rect = pygame.Rect(glow_offset, glow_offset, 
-                                           glow_rect.width - glow_offset * 2, 
-                                           glow_rect.height - glow_offset * 2)
-                    pygame.draw.rect(
-                        glow_surf,
-                        (*glow_color[:3], glow_alpha),
-                        inner_rect
+                glow_strength = 0
+
+        # Glow effect ONLY on hover
+            if is_hovered and glow_color:
+                for blur in [15, 10, 5]:
+                    glow_surf = pygame.Surface(
+                        (text_rect.width + blur*2, text_rect.height + blur*2),
+                        pygame.SRCALPHA
                     )
-                    glow_pos = (glow_rect.x, glow_rect.y)
+                    alpha = max(0, 35 - blur * 2)
+                    glow_text = self.menu_font.render(option, True, (*glow_color, alpha))
+                    glow_surf.blit(glow_text, (blur, blur))
+                    glow_pos = (text_rect.x - blur, text_rect.y - blur)
                     self.screen.blit(glow_surf, glow_pos)
-            
-            # Draw border/selector
-            if border_color:
-                border_rect = text_rect.inflate(20, 10)
-                border_rect.y += offset_y
-                pygame.draw.rect(
-                    self.screen,
-                    border_color,
-                    border_rect,
-                    border_width
-                )
-            
-            # Draw text with scale effect
-            if scale != 1.0:
-                scaled_text = pygame.transform.scale(
-                    self.menu_font.render(option, True, text_color),
-                    (int(text_rect.width * scale), int(text_rect.height * scale))
-                )
-                scaled_rect = scaled_text.get_rect(center=(text_rect.centerx, text_rect.centery + offset_y))
-                self.screen.blit(scaled_text, scaled_rect)
-            else:
-                text_surf = self.menu_font.render(option, True, text_color)
-                text_pos = (text_rect.x, text_rect.y + offset_y)
-                self.screen.blit(text_surf, text_pos)
+
+        # Draw final text
+            final_text = self.menu_font.render(option, True, text_color)
+            final_rect = final_text.get_rect(center=(text_rect.centerx, text_rect.centery + offset_y))
+            self.screen.blit(final_text, final_rect)
 
 
 class CraftingScene(Scene):
