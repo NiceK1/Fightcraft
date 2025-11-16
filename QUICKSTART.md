@@ -17,7 +17,8 @@ start_backend.bat
 
 **Linux/Mac:**
 ```bash
-python ai_backend/server.py
+chmod +x start_backend.sh  # Make executable (first time only)
+./start_backend.sh
 ```
 
 Wait for the message: "Server will be available at http://localhost:8000"
@@ -33,23 +34,27 @@ start_game.bat
 
 **Linux/Mac:**
 ```bash
-python main.py
+chmod +x start_game.sh  # Make executable (first time only)
+./start_game.sh
 ```
 
 ## Step 4: Play!
 
 ### Crafting:
-1. **Drag 3 materials** from inventory to the 3x3 crafting grid
-2. Click **"Craft Item"** button
-3. Wait 2-3 seconds for AI generation
-4. **Drag result** to equipment slots (Weapon/Armor/Buff)
-5. Press **ESC** to start combat
+1. **Select weapon type** (for weapons only): Choose sword, axe, or spear
+2. **Drag 3 materials** from inventory to the 3x3 crafting grid
+3. Click **"Craft Item"** button
+4. Wait 2-3 seconds for AI generation
+5. **Click info button (i)** to view item details and lore
+6. **Drag result** to equipment slots (Weapon/Armor/Buff)
+7. Press **ESC** to start combat
 
 ### Combat:
 1. Press **SPACE** to execute each turn
 2. Press **A** to enable auto-combat
 3. Watch your crafted items in action!
-4. Press **ESC** to return to crafting
+4. **Active effects** are displayed below health bars with durations
+5. Press **ESC** to return to crafting
 
 ## Try These Recipes:
 
