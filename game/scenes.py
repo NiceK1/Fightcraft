@@ -657,9 +657,12 @@ class CombatScene(Scene):
                 self.auto_combat_timer = 0
 
     def render(self):
-        # Draw background pattern (subtle)
+        # Draw background pattern (subtle lines over gradient)
+        # Lines are slightly darker than gradient for subtle texture
         for y in range(0, self.game.height, 40):
-            pygame.draw.line(self.screen, (50, 50, 50), (0, y), (self.game.width, y), 1)
+            # Use darker color that works with gradient
+            line_color = (35, 35, 35)
+            pygame.draw.line(self.screen, line_color, (0, y), (self.game.width, y), 1)
         
         # Draw title
         title = self.game.font.render("COMBAT!", True, (255, 100, 100))
