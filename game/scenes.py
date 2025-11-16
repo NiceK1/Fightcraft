@@ -19,6 +19,8 @@ class MainMenuScene(Scene):
 
         self.options = ["Start Game", "Quit"]
         self.selected = 0
+        self.pressed_option = None  # Track which option is being pressed
+        self.press_timer = 0.0  # Timer for press animation
 
     def handle_event(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN:
@@ -27,15 +29,61 @@ class MainMenuScene(Scene):
             elif event.key == pygame.K_DOWN:
                 self.selected = (self.selected + 1) % len(self.options)
             elif event.key == pygame.K_RETURN:
-                if self.selected == 0:
-                    # Start game - go to crafting scene
-                    self.game.change_scene(CraftingScene(self.game))
-                elif self.selected == 1:
-                    # Quit
-                    self.game.quit()
+                self._execute_option(self.selected)
+        
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # Handle mouse click on menu options
+            mouse_pos = event.pos
+            for i, option in enumerate(self.options):
+                text = self.menu_font.render(option, True, (200, 200, 200))
+                text_rect = text.get_rect(center=(self.game.width // 2, 350 + i * 60))
+                # Use inflated rect for easier clicking
+                click_rect = text_rect.inflate(20, 10)
+                if click_rect.collidepoint(mouse_pos):
+                    self.pressed_option = i
+                    self.press_timer = 0.15  # 150ms press animation
+                    break
+        
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            # Handle mouse release
+            if self.pressed_option is not None:
+                mouse_pos = event.pos
+                i = self.pressed_option
+                text = self.menu_font.render(self.options[i], True, (200, 200, 200))
+                text_rect = text.get_rect(center=(self.game.width // 2, 350 + i * 60))
+                click_rect = text_rect.inflate(20, 10)
+                if click_rect.collidepoint(mouse_pos):
+                    self._execute_option(i)
+                self.pressed_option = None
+                self.press_timer = 0.0
+
+    def _execute_option(self, index: int):
+        """Execute the action for the selected menu option."""
+        if index == 0:
+            # Start game - go to crafting scene
+            self.game.change_scene(CraftingScene(self.game))
+        elif index == 1:
+            # Quit
+            self.game.quit()
 
     def update(self, dt: float):
-        pass
+        # Update selected option based on mouse hover
+        mouse_pos = pygame.mouse.get_pos()
+        hover_found = False
+        for i, option in enumerate(self.options):
+            text = self.menu_font.render(option, True, (200, 200, 200))
+            text_rect = text.get_rect(center=(self.game.width // 2, 350 + i * 60))
+            hover_rect = text_rect.inflate(20, 10)
+            if hover_rect.collidepoint(mouse_pos):
+                self.selected = i
+                hover_found = True
+                break
+        
+        # If mouse is not over any option, keep current selection (for keyboard navigation)
+        
+        # Update press timer
+        if self.press_timer > 0:
+            self.press_timer = max(0, self.press_timer - dt)
 
     def render(self):
         # Draw title
@@ -50,21 +98,80 @@ class MainMenuScene(Scene):
         subtitle_rect = subtitle.get_rect(center=(self.game.width // 2, 220))
         self.screen.blit(subtitle, subtitle_rect)
 
-        # Draw menu options
+        # Draw menu options with interactive states
+        mouse_pos = pygame.mouse.get_pos()
         for i, option in enumerate(self.options):
-            color = (255, 255, 100) if i == self.selected else (200, 200, 200)
-            text = self.menu_font.render(option, True, color)
+            text = self.menu_font.render(option, True, (200, 200, 200))
             text_rect = text.get_rect(center=(self.game.width // 2, 350 + i * 60))
-            self.screen.blit(text, text_rect)
-
-            # Draw selector
-            if i == self.selected:
+            hover_rect = text_rect.inflate(20, 10)
+            is_hovered = hover_rect.collidepoint(mouse_pos) and self.pressed_option is None
+            is_pressed = (self.pressed_option == i) and self.press_timer > 0
+            
+            # Determine colors and effects based on state
+            if is_pressed:
+                # Pressed state - darker, slightly smaller
+                text_color = (150, 150, 150)
+                border_color = (200, 200, 100)
+                border_width = 2
+                scale = 0.95
+                offset_y = 1  # Slight downward shift
+            elif is_hovered or i == self.selected:
+                # Hover/selected state - bright yellow, glowing effect
+                text_color = (255, 255, 100)
+                border_color = (255, 255, 150)
+                border_width = 3
+                scale = 1.0
+                offset_y = 0
+            else:
+                # Normal state
+                text_color = (200, 200, 200)
+                border_color = None
+                border_width = 0
+                scale = 1.0
+                offset_y = 0
+            
+            # Draw glow effect for hover/selected
+            if (is_hovered or (i == self.selected and not is_pressed)) and border_color:
+                glow_color = border_color if isinstance(border_color, tuple) else (255, 255, 150)
+                glow_rect = text_rect.inflate(30, 15)
+                # Draw multiple layers for glow effect
+                for glow_offset in [15, 10, 5]:
+                    glow_alpha = max(0, 25 - glow_offset * 2)
+                    glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                    inner_rect = pygame.Rect(glow_offset, glow_offset, 
+                                           glow_rect.width - glow_offset * 2, 
+                                           glow_rect.height - glow_offset * 2)
+                    pygame.draw.rect(
+                        glow_surf,
+                        (*glow_color[:3], glow_alpha),
+                        inner_rect
+                    )
+                    glow_pos = (glow_rect.x, glow_rect.y)
+                    self.screen.blit(glow_surf, glow_pos)
+            
+            # Draw border/selector
+            if border_color:
+                border_rect = text_rect.inflate(20, 10)
+                border_rect.y += offset_y
                 pygame.draw.rect(
                     self.screen,
-                    (255, 255, 100),
-                    text_rect.inflate(20, 10),
-                    3
+                    border_color,
+                    border_rect,
+                    border_width
                 )
+            
+            # Draw text with scale effect
+            if scale != 1.0:
+                scaled_text = pygame.transform.scale(
+                    self.menu_font.render(option, True, text_color),
+                    (int(text_rect.width * scale), int(text_rect.height * scale))
+                )
+                scaled_rect = scaled_text.get_rect(center=(text_rect.centerx, text_rect.centery + offset_y))
+                self.screen.blit(scaled_text, scaled_rect)
+            else:
+                text_surf = self.menu_font.render(option, True, text_color)
+                text_pos = (text_rect.x, text_rect.y + offset_y)
+                self.screen.blit(text_surf, text_pos)
 
 
 class CraftingScene(Scene):
