@@ -84,17 +84,17 @@ class SpriteGenerator:
             try:
                 if self.ai_provider == "replicate":
                     img = self._generate_with_replicate(materials, item_type, seed, weapon_subtype)
-                    img = self.remove_bg_photoroom(img)
+                    img = self.remove_bg(img)
                     return img
 
                 elif self.ai_provider == "openai":
                     img = self._generate_with_openai(materials, item_type, seed, weapon_subtype)
-                    img = self.remove_bg_photoroom(img)
+                    img = self.remove_bg(img)
                     return img
 
                 elif self.ai_provider == "comfyui":
                     img = self._generate_with_comfy(materials, item_type, seed, weapon_subtype)
-                    img = self.remove_bg_photoroom(img)
+                    img = self.remove_bg(img)
                     return img
             except Exception as e:
                 print(f"AI sprite generation failed: {e}, using fallback")
@@ -142,29 +142,29 @@ class SpriteGenerator:
         image.save(buffer, format='PNG')
         return buffer.getvalue()
         
-    def remove_bg_photoroom(self, image_bytes: bytes) -> bytes:
-        """Remove background using PhotoRoom API."""
-        api_key = os.getenv("PHOTOROOM_API_KEY")
+    def remove_bg(self, image_bytes: bytes) -> bytes:
+        """Remove background using Clipdrop API."""
+        api_key = os.getenv("CLIPDROP_API_KEY")
         if not api_key:
-            print("PHOTOROOM_API_KEY not found, skipping background removal")
+            print("CLIPDROP_API_KEY not found, skipping background removal")
             return image_bytes
 
         try:
             response = requests.post(
-                "https://sdk.photoroom.com/v1/segment",
+                "https://clipdrop-api.co/remove-background/v1",
                 headers={"x-api-key": api_key},
                 files={"image_file": ("sprite.png", image_bytes, "image/png")},
                 timeout=10
             )
 
             if response.status_code != 200:
-                print("PhotoRoom error:", response.text)
+                print("Clipdrop error:", response.text)
                 return image_bytes
 
             return response.content
 
         except Exception as e:
-            print("PhotoRoom background removal failed:", e)
+            print("Clipdrop background removal failed:", e)
             return image_bytes
 
     def _generate_with_openai(

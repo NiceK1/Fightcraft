@@ -7,8 +7,11 @@ An AI-powered 2D crafting and combat game built with Pygame. Craft unique items 
 - **AI-Powered Sprite Generation**: Items sprites are generated using AI based on the materials you combine
 - **AI-Powered Stats Generation**: Item properties and stats are procedurally generated with AI
 - **Minecraft-Style Crafting**: 3x3 crafting grid with predefined recipes
+- **Weapon Type Selection**: Choose between sword, axe, or spear when crafting weapons
+- **Item Info System**: View detailed item descriptions and effects via info button popup
 - **Equipment System**: Equip weapons, armor, and buffs/concoctions
-- **Turn-Based Combat**: Fight enemies using your crafted items
+- **Turn-Based Combat**: Fight enemies using your crafted items with real-time active effects display
+- **Active Effects Tracking**: See all status effects, durations, and stack counts during combat
 - **Intelligent Caching**: Generated sprites and stats are cached for instant reuse
 - **Fallback System**: Works without AI backend using procedural generation
 
@@ -121,15 +124,19 @@ For full AI-powered sprite and stats generation:
 - Choose "Start Game" to begin crafting
 
 ### Crafting Scene
-1. **Drag and Drop Materials**: Click and drag materials from your inventory to the 3x3 crafting grid
-2. **Craft Items**: Place exactly 3 materials in the grid to enable crafting
-3. **Generate with AI**: Click "Craft Item" button - AI will generate unique sprite and stats
-4. **Equip Items**: Drag crafted items to equipment slots (Weapon, Armor, Buff)
-5. **Start Combat**: Press **ESC** when ready to fight
+1. **Select Tab**: Switch between Weapon, Armor, and Concoction tabs
+2. **Choose Weapon Type** (Weapon tab only): Select sword, axe, or spear using radio buttons
+3. **Drag and Drop Materials**: Click and drag materials from your inventory to the 3x3 crafting grid
+4. **Craft Items**: Place exactly 3 materials in the grid to enable crafting
+5. **Generate with AI**: Click "Craft Item" button - AI will generate unique sprite and stats
+6. **View Item Info**: Click the info button (i) next to crafted items to see detailed descriptions
+7. **Equip Items**: Drag crafted items to equipment slots (Weapon, Armor, Buff)
+8. **Start Combat**: Press **ESC** when ready to fight
 
 ### Combat Scene
 - Press **SPACE** to execute next turn
 - Press **A** to toggle auto-combat (automatic turns)
+- **Active Effects**: View all status effects with durations and stack counts below health bars
 - Press **ESC** to return to crafting
 
 ## Crafting Recipes
@@ -282,9 +289,16 @@ Request:
 {
   "materials": ["Iron Ingot", "Oak Wood", "Crystal Shard"],
   "item_type": "weapon",
-  "seed": 12345
+  "seed": 12345,
+  "weapon_subtype": "sword"
 }
 ```
+
+Parameters:
+- `materials`: Array of material names
+- `item_type`: "weapon", "armor", or "concoction"
+- `seed` (optional): Random seed for reproducible generation
+- `weapon_subtype` (optional): "sword", "axe", or "spear" for weapons
 
 Response: PNG image (binary)
 
@@ -295,9 +309,15 @@ Request:
 ```json
 {
   "materials": ["Iron Ingot", "Oak Wood", "Crystal Shard"],
-  "item_type": "weapon"
+  "item_type": "weapon",
+  "weapon_subtype": "sword"
 }
 ```
+
+Parameters:
+- `materials`: Array of material names
+- `item_type`: "weapon", "armor", or "concoction"
+- `weapon_subtype` (optional): "sword", "axe", or "spear" for weapons
 
 Response:
 ```json
@@ -307,9 +327,11 @@ Response:
   "armor": 0,
   "health": 0,
   "speed": 1.2,
+  "effect_type": "lifesteal",
+  "effect_power": 0.3,
   "special_effect": "Deals bonus magical damage",
   "rarity": "rare",
-  "description": "A powerful weapon forged from Iron Ingot, Oak Wood, Crystal Shard."
+  "description": "A powerful sword forged from Iron Ingot, Oak Wood, Crystal Shard."
 }
 ```
 
