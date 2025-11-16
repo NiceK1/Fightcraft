@@ -155,6 +155,38 @@ class CraftingButton:
         surface.blit(text_surf, text_rect)
 
 
+class FightButton:
+    """Button to start combat."""
+
+    def __init__(self, x: int, y: int, width: int = 150, height: int = 40):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.hovered = False
+
+    def contains_point(self, pos: Tuple[int, int]) -> bool:
+        """Check if position is within button."""
+        return self.rect.collidepoint(pos)
+
+    def render(self, surface: pygame.Surface, font: pygame.font.Font):
+        """Render the fight button."""
+        # Determine button color
+        if self.hovered:
+            color = (200, 80, 80)
+            text_color = (255, 255, 255)
+        else:
+            color = (180, 60, 60)
+            text_color = (255, 255, 255)
+
+        # Draw button
+        pygame.draw.rect(surface, color, self.rect)
+        pygame.draw.rect(surface, (255, 200, 200), self.rect, 2)
+
+        # Draw text
+        text = "Fight"
+        text_surf = font.render(text, True, text_color)
+        text_rect = text_surf.get_rect(center=self.rect.center)
+        surface.blit(text_surf, text_rect)
+
+
 class ResultSlot:
     """Slot to display crafted item result."""
 
@@ -175,12 +207,21 @@ class ResultSlot:
         """Check if position is within result slot."""
         return self.slot.contains_point(pos)
 
-    def render(self, surface: pygame.Surface, font: pygame.font.Font, mouse_pos: Optional[Tuple[int, int]] = None):
+    def render(self, surface: pygame.Surface, font: pygame.font.Font, mouse_pos: Optional[Tuple[int, int]] = None, item_type_hint=None):
         """Render the result slot with label."""
+        from game.item import ItemType
+        
         # Draw label
         label = font.render("Result", True, (255, 255, 255))
         surface.blit(label, (self.slot.x + 20, self.slot.y - 30))
 
-        # Draw slot
+        # Determine item type hint for silhouette
+        hint_type = None
+        if self.slot.item:
+            hint_type = self.slot.item.item_type
+        elif item_type_hint:
+            hint_type = item_type_hint
+
+        # Draw slot with silhouette hint
         hovered = self.contains_point(mouse_pos) if mouse_pos else False
-        self.slot.render(surface, hovered)
+        self.slot.render(surface, hovered, item_type_hint=hint_type)
