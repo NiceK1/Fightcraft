@@ -1,7 +1,29 @@
 """Core game engine for Fightcraft."""
 import pygame
-from typing import Optional
+from typing import Optional, Tuple
 from abc import ABC, abstractmethod
+
+
+def draw_gradient_background(surface: pygame.Surface, top_color: Tuple[int, int, int], bottom_color: Tuple[int, int, int]):
+    """Draw a vertical gradient background."""
+    width, height = surface.get_size()
+    
+    # Create a surface for the gradient
+    gradient_surface = pygame.Surface((width, height))
+    
+    # Calculate color steps
+    for y in range(height):
+        # Interpolate between top and bottom colors
+        ratio = y / height
+        r = int(top_color[0] * (1 - ratio) + bottom_color[0] * ratio)
+        g = int(top_color[1] * (1 - ratio) + bottom_color[1] * ratio)
+        b = int(top_color[2] * (1 - ratio) + bottom_color[2] * ratio)
+        
+        # Draw horizontal line with interpolated color
+        pygame.draw.line(gradient_surface, (r, g, b), (0, y), (width, y))
+    
+    # Blit the gradient surface to the main surface
+    surface.blit(gradient_surface, (0, 0))
 
 
 class Scene(ABC):
@@ -69,7 +91,8 @@ class GameEngine:
                 self.current_scene.update(dt)
 
             # Render
-            self.screen.fill((40, 40, 40))  # Dark gray background
+            # Draw gradient background (lighter at top, darker at bottom)
+            draw_gradient_background(self.screen, (50, 50, 50), (30, 30, 30))
             if self.current_scene:
                 self.current_scene.render()
 
